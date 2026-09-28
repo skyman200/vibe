@@ -49,13 +49,13 @@ async function post(action, payload) {
  * (전달망 장애로 사이트가 아예 열리지 않는 일이 없도록).
  */
 async function getPublic(action) {
+  let data = null;
   try {
-    const res = await fetch(`${PUBLIC_URL}?action=${action}`);
-    const data = await readJson(res);
-    if (data.ok || data.code !== 'NETWORK') return data;
+    data = await readJson(await fetch(`${PUBLIC_URL}?action=${action}`));
   } catch (e) {
-    if (e.code !== 'NETWORK') throw e;
+    // 연결 자체가 안 되거나(fetch 거부) JSON 이 아닌 응답 → Apps Script 로 직접 묻는다.
   }
+  if (data && (data.ok || data.code !== 'NETWORK')) return data;
   return post(action, {});
 }
 

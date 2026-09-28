@@ -76,8 +76,9 @@ export function TeamFields({ t, set, errors, config }) {
 }
 
 /** onRotate(팀장 「내 신청」에서만): 초대 코드를 새로 만들어 지금 링크를 쓸 수 없게 한다. */
-export function InviteBox({ team, compact, onRotate }) {
-  const { notify } = useApp();
+export function InviteBox({ team, onRotate }) {
+  const { config, notify } = useApp();
+  const need = config.teamSize - team.count;
   const link = inviteLink(team.id, team.inviteCode);
   const manual = `${team.id}-${team.inviteCode}`;
   const message = `[DIT 바이브코딩 해커톤] '${team.name}' 팀 초대\n아래 링크를 열고 본인 정보를 입력해 합류해 주세요. (본인만 입력·동의)\n${link}`;
@@ -85,7 +86,7 @@ export function InviteBox({ team, compact, onRotate }) {
   return html`<div class="invite">
     <div>
       <h3>팀원 초대</h3>
-      ${compact ? '' : html`<p class="small muted" style="margin:4px 0 0">팀원 3명에게 이 링크를 보내세요. 팀원이 각자 본인 정보를 입력하고 동의해야 합류됩니다.</p>`}
+      <p class="small muted" style="margin:4px 0 0">팀원 ${need}명에게 이 링크를 보내세요. 팀원이 각자 본인 정보를 입력하고 동의해야 합류됩니다.</p>
     </div>
     <div class="linkrow">
       <input class="input" readonly value=${link} aria-label="초대 링크" onFocus=${(e) => e.target.select()} />

@@ -104,6 +104,14 @@ function FormPanel({ view, onView }) {
         onView(res.view);
         notify('신청서 파일을 올렸습니다.');
       } catch (err) {
+        // 연결이 끊겨 다시 보낸 요청이 거절됐을 수 있다 — 첫 요청이 실제로 저장됐는지 확인한다.
+        const now = err.ambiguous ? await api('me', { token: session.get('member') }).catch(() => null) : null;
+        const saved = now && now.view.team.form;
+        if (saved && saved.name === file.name.slice(-100) && saved.at !== (t.form && t.form.at)) {
+          onView(now.view);
+          notify('신청서 파일을 올렸습니다.');
+          return;
+        }
         setError(err.message);
       }
     });
@@ -395,6 +403,7 @@ function MyInfoPanel({ view, onView, config }) {
 function DangerPanel({ view, onLeft }) {
   const leader = view.me.role === 'leader';
   const alone = view.team.count === 1;
+  const inApply = view.phase.apply === 'open' || view.phase.apply === 'full';
   const [modal, setModal] = useState('');
   const [checked, setChecked] = useState(false);
   const [typed, setTyped] = useState('');
@@ -428,7 +437,9 @@ function DangerPanel({ view, onLeft }) {
     </div>
     ${leader && !alone ? html`<p class="small muted" style="margin:0">팀장이 혼자 빠지려면 먼저 다른 팀원에게 팀장을 넘겨 주세요.</p>` : ''}
     ${modal === 'withdraw' ? html`<${Modal} title="신청 철회" onClose=${close}>
-      <p>철회하면 내 신청 정보(학번·연락처·이메일 등)가 바로 삭제됩니다. ${leader ? '팀장 혼자이므로 팀도 함께 삭제됩니다.' : '팀 인원이 줄어 접수 완료 상태였다면 다시 \'팀 구성 중\'이 됩니다.'}</p>
+      <p>철회하면 내 신청 정보(학번·연락처·이메일 등)가 바로 삭제됩니다. ${leader ? '팀장 혼자이므로 팀도 함께 삭제됩니다.'
+        : inApply ? '팀 인원이 줄어 접수 완료 상태였다면 다시 \'팀 구성 중\'이 됩니다.'
+          : '팀은 지금 상태를 유지하고, 팀장이 새 팀원을 받아 신청서를 다시 올려야 합니다.'}</p>
       <label class="check"><input type="checkbox" checked=${checked} onChange=${(e) => setChecked(e.target.checked)} /><span>위 내용을 확인했습니다.</span></label>
       ${error ? html`<div class="err" style="margin-top:10px">${error}</div>` : ''}
       <div class="btn-row" style="margin-top:16px"><button class="btn btn-danger" disabled=${!checked || busy} onClick=${withdraw}>철회하고 삭제</button><button class="btn" onClick=${close}>닫기</button></div>
@@ -469,7 +480,13 @@ export function MeView() {
     if (state !== 'ready') return undefined;
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
-      api('me', { token: session.get('member') }).then((res) => setView(res.view)).catch(() => { /* 다음에 다시 */ });
+      api('me', { token: session.get('member') }).then((res) => setView(res.view)).catch((err) => {
+        // 로그인이 끊겼으면(철회·내보내기·만료) 로그인 화면으로. 그 밖의 오류는 다음에 탭으로 돌아올 때 다시 불러온다.
+        if (err.code !== 'AUTH') return;
+        session.clear('member');
+        setMessage(err.message);
+        setState('login');
+      });
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);

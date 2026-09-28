@@ -165,6 +165,14 @@ function TeamDrawer({ team, data, onClose, reload }) {
   const [tempPin, setTempPin] = useState(null);
   const [busy, run] = useBusy();
   const judgeName = Object.fromEntries(data.judges.map((j) => [j.id, j.name]));
+  // 바뀐 칸만 보낸다(저장소 주소가 그대로면 제출·마감 커밋 기록을 건드리지 않게).
+  const saveRepo = () => {
+    const patch = {};
+    if (repoUrl.trim() !== team.repo.url) patch.repoUrl = repoUrl;
+    if (serviceUrl.trim() !== team.repo.serviceUrl) patch.serviceUrl = serviceUrl;
+    if (!Object.keys(patch).length) { notify('바뀐 내용이 없습니다.'); return; }
+    call('adminTeam', { patch }, '결과물 주소를 저장했습니다.');
+  };
 
   const call = (action, payload, done) => run(async () => {
     try {
@@ -245,7 +253,7 @@ function TeamDrawer({ team, data, onClose, reload }) {
           <${Field} label="서비스 주소" id="adm-svc"><input id="adm-svc" class="input mono" value=${serviceUrl} onInput=${(e) => setServiceUrl(e.target.value)} /><//>
         </div>
         <div class="btn-row">
-          <button class="btn btn-sm" disabled=${busy} onClick=${() => call('adminTeam', { patch: { repoUrl, serviceUrl } }, '결과물 주소를 저장했습니다.')}>주소 저장</button>
+          <button class="btn btn-sm" disabled=${busy} onClick=${saveRepo}>주소 저장</button>
           ${team.repo.url ? html`<button class="btn btn-sm" disabled=${busy} onClick=${() => call('adminRepoCheck', {}, '저장소를 다시 점검했습니다.')}>저장소 점검</button>
             <a class="btn btn-sm btn-ghost" href=${team.repo.url} target="_blank" rel="noopener">GitHub 열기</a>` : ''}
         </div>
@@ -380,6 +388,16 @@ function JudgingTab({ data, reload, openTeam }) {
     }
     reload();
   });
+  const fixPin = () => run(async () => {
+    try {
+      const res = await api('adminPinSchedule', { token: token() });
+      const okay = res.deadlinePin.state === 'scheduled';
+      notify(okay ? `마감 커밋 자동 기록을 ${fmtWhen(res.deadlinePin.at)}에 예약했습니다.` : '예약하지 못했습니다. 잠시 후 다시 시도해 주세요.', okay ? 'ok' : 'err');
+    } catch (err) {
+      notify(err.message, 'err');
+    }
+    reload();
+  });
   const importBulk = () => run(async () => {
     let rows;
     try {
@@ -426,6 +444,7 @@ function JudgingTab({ data, reload, openTeam }) {
           <button class="btn btn-sm" onClick=${() => { setBulk(''); setBulkResult(null); }}>점수 JSON 붙여넣기</button>
         </div>
       </div>
+      <${PinSchedule} pin=${data.deadlinePin} busy=${busy} onFix=${fixPin} />
       <div class="table-box"><table class="dtable">
         <thead><tr><th>순서</th><th>팀</th><th>저장소</th><th>고정 커밋</th>${data.rubric.code.map((c) => html`<th>${c.label}</th>`)}<th>코드 합계</th><th>대면 평균</th></tr></thead>
         <tbody>${selected.map((t) => html`<tr>
@@ -492,6 +511,30 @@ const SETTING_GROUPS = [
   ['문의처', [['contactName', '문의처', 'text'], ['contactPhone', '전화', 'text'], ['contactEmail', '이메일', 'text']]],
 ];
 
+/** 마감 커밋 자동 기록(마감 1초 뒤 트리거) 예약 상태. 예약이 빠졌으면 마감 시각의 커밋을 기록할 수 없으므로 크게 알린다. */
+function PinSchedule({ pin, busy, onFix }) {
+  if (pin.state === 'passed') return '';
+  if (pin.state === 'scheduled') return html`<p class="small muted" style="margin:0">마감 커밋은 ${fmtWhen(pin.at)}에 자동으로 기록합니다.</p>`;
+  return html`<div class="notice bad" role="alert"><b>마감 커밋 자동 기록이 예약되어 있지 않습니다.</b> 이대로면 마감 시각의 커밋을 기록하지 못합니다.
+    <button type="button" class="link-btn" disabled=${busy} onClick=${onFix}>다시 예약</button></div>`;
+}
+
+/** 전체 파기 결과: 법적 파기 기록이라 사라지는 알림 대신 화면에 남긴다. 실패한 단계는 직접 할 일과 함께 보여 준다. */
+function PurgeResult({ res }) {
+  const f = res.files;
+  const bad = !res.oldMirror.trashed || f.error || f.failed > 0;
+  return html`<div class=${`notice ${bad ? 'bad' : 'ok'}`} role="status">
+    <b>파기 완료: 팀 ${res.purged.teams}개, 참가자 ${res.purged.members}명.</b>
+    <ul>
+      <li>신청서 파일 ${f.trashed}개를 휴지통으로 보냈습니다.${f.error ? ' 신청서 폴더를 열지 못해 파일 정리를 못 했습니다 — 드라이브에서 폴더 안 파일을 직접 지워 주세요.' : f.failed ? ` ${f.failed}개는 보내지 못했습니다 — 드라이브에서 직접 지워 주세요.` : ''}</li>
+      <li>${res.oldMirror.trashed ? '이전 보기용 사본은 휴지통으로 보내고 새 파일로 바꿨습니다.'
+        : html`이전 보기용 사본을 휴지통으로 보내지 못했습니다 — <a href=${res.oldMirror.url} target="_blank" rel="noopener">이전 사본 열기</a> 후 직접 삭제해 주세요(개인정보가 남아 있습니다).`}</li>
+      <li>${res.mirror}</li>
+      <li>드라이브 휴지통을 비워야 파기가 끝납니다.</li>
+    </ul>
+  </div>`;
+}
+
 function SettingsTab({ data, reload, onCodeChanged }) {
   const { notify, reloadConfig } = useApp();
   const s = data.settings;
@@ -500,6 +543,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
   const [errors, setErrors] = useState({});
   const [newCode, setNewCode] = useState('');
   const [purge, setPurge] = useState('');
+  const [purged, setPurged] = useState(null);
   const [busy, run] = useBusy();
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -512,9 +556,13 @@ function SettingsTab({ data, reload, onCodeChanged }) {
     if (!Object.keys(patch).length) { notify('바뀐 내용이 없습니다.'); return; }
     run(async () => {
       try {
-        await api('adminSettings', { token: token(), settings: patch });
+        const res = await api('adminSettings', { token: token(), settings: patch });
         setErrors({});
-        notify('설정을 저장했습니다.');
+        if (res.deadlinePin && res.deadlinePin.state !== 'scheduled' && res.deadlinePin.state !== 'passed') {
+          notify('설정은 저장했지만 마감 커밋 자동 기록을 예약하지 못했습니다. [심사] 탭에서 [다시 예약]을 눌러 주세요.', 'err');
+        } else {
+          notify('설정을 저장했습니다.');
+        }
         await reload();
         reloadConfig();
       } catch (err) {
@@ -527,7 +575,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       ? html`<input id=${`set-${k}`} class="input num" type="datetime-local" value=${form[k]} onInput=${(e) => set(k, e.target.value)} />`
       : html`<input id=${`set-${k}`} class=${`input${type === 'number' ? ' num' : ''}`} inputmode=${type === 'number' ? 'numeric' : undefined} value=${form[k]} onInput=${(e) => set(k, e.target.value)} />`}
   <//>`;
-  const yn = (k, label, hint) => html`<label class="check"><input type="checkbox" checked=${form[k] === 'Y'} onChange=${(e) => set(k, e.target.checked ? 'Y' : 'N')} /><span><b>${label}</b><div class="small muted">${hint}</div></span></label>`;
+  const yn = (k, label, hint) => html`<label class="check"><input type="checkbox" checked=${form[k] === 'Y'} onChange=${(e) => set(k, e.target.checked ? 'Y' : 'N')} /><span><b>${label}</b><div class="small muted">${hint}</div>${errors[k] ? html`<div class="err" role="alert">${errors[k]}</div>` : ''}</span></label>`;
 
   return html`<form class="form" onSubmit=${save}>
     ${SETTING_GROUPS.map(([title, fields]) => html`<fieldset class="fs">
@@ -548,7 +596,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       ${yn('selectionPublished', '선정 결과 공개', '켜면 참가자 화면과 참가현황에 선정·예비가 보입니다. 미선정 팀은 게시판에 나오지 않습니다.')}
       ${yn('resultsPublished', '시상 결과 공개', '켜면 참가현황 맨 위에 수상 팀이 나옵니다.')}
       <label class="check"><input type="checkbox" checked=${form.boardMode === 'contest'} onChange=${(e) => set('boardMode', e.target.checked ? 'contest' : 'recruit')} />
-        <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 선정 결과 공개 뒤에만).</div></span></label>
+        <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 선정 결과 공개 뒤에만).</div>${errors.boardMode ? html`<div class="err" role="alert">${errors.boardMode}</div>` : ''}</span></label>
     </fieldset>
 
     <fieldset class="fs">
@@ -609,8 +657,9 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       <p class="small" style="margin:0">팀·참가자·점수·심사위원 정보를 모두 지웁니다. 신청서 폴더의 파일과 보기용 스프레드시트 사본 파일은 드라이브 휴지통으로 보내고 사본은 새로 만듭니다('버전 기록'까지 지우기 위해). 되돌릴 수 없으니 먼저 [엑셀로 저장]으로 보관할 자료를 받아 두세요. 파기를 끝내려면 드라이브 휴지통을 비우세요. 확인 문구 <b>전체 파기</b>를 입력합니다.</p>
       <div class="linkrow" style="max-width:420px"><input class="input" value=${purge} onInput=${(e) => setPurge(e.target.value)} aria-label="확인 문구" />
         <button type="button" class="btn btn-danger" disabled=${busy || purge !== '전체 파기'} onClick=${() => run(async () => {
-          try { const res = await api('adminPurge', { token: token(), confirm: purge }); notify(`파기 완료: 팀 ${res.purged.teams}개, 참가자 ${res.purged.members}명, 신청서 파일 ${res.files.trashed}개${res.files.failed ? `(삭제 실패 ${res.files.failed}개 — 드라이브에서 직접 지워 주세요)` : ''} · 보기용 사본은 새 파일로 바꿨습니다. 드라이브 휴지통을 비워야 파기가 끝납니다.`, res.files.failed ? 'err' : 'ok'); setPurge(''); reload(); } catch (err) { notify(err.message, 'err'); }
+          try { const res = await api('adminPurge', { token: token(), confirm: purge }); setPurged(res); setPurge(''); reload(); } catch (err) { notify(err.message, 'err'); }
         })}>전체 파기</button></div>
+      ${purged ? html`<${PurgeResult} res=${purged} />` : ''}
     </fieldset>
   </form>`;
 }

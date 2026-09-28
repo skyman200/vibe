@@ -69,7 +69,7 @@ button { font: inherit; }
 .nav a { padding: 8px 12px; color: var(--ink-2); text-decoration: none; font-weight: 500; border-radius: 6px; }
 .nav a:hover { color: var(--ink); background: var(--sunk); }
 .nav a[aria-current='page'] { color: var(--ink); font-weight: 700; background: transparent; box-shadow: inset 0 -2px 0 var(--red); border-radius: 0; }
-.foot { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 13px; }
+.foot { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
 .foot-in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; }
 .foot a { color: var(--ink-2); }
 .foot nav { display: flex; gap: 16px; flex-wrap: wrap; }
@@ -120,7 +120,7 @@ button { font: inherit; }
 .select { appearance: none; padding-right: 36px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2344474f' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 14px center; }
 .textarea { min-height: 116px; padding: 10px 12px; line-height: 1.65; resize: vertical; }
 .input:focus, .select:focus, .textarea:focus { outline: 2px solid var(--navy); outline-offset: 0; border-color: var(--navy); }
-.input::placeholder, .textarea::placeholder { color: #a3a59f; }
+.input::placeholder, .textarea::placeholder { color: var(--muted); }
 .input[readonly] { background: var(--paper); }
 .field.bad .input, .field.bad .select, .field.bad .textarea { border-color: var(--red); background-color: #fffafa; }
 .hint { font-size: 14px; color: var(--muted); }
@@ -172,6 +172,7 @@ button { font: inherit; }
 .notice.ok { background: var(--green-bg); color: #164f35; }
 .notice.bad { background: var(--red-bg); color: #7d0f0d; }
 .notice b { color: inherit; }
+.notice ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 2px; }
 
 /* ── 상태 표시(작은 네모 + 글자) ── */
 .st { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
@@ -203,11 +204,11 @@ button { font: inherit; }
 .facts dt, .facts dd { margin: 0; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .facts dt { color: var(--muted); font-size: 14px; }
 .facts dd { font-weight: 600; }
-.facts dd small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+.facts dd small { display: block; font-weight: 400; color: var(--muted); font-size: 14px; }
 .ticker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); }
 .ticker > div { padding: 16px 16px 14px 0; }
 .ticker b { display: block; font: 800 26px/1.15 var(--sans); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-.ticker span { font-size: 13px; color: var(--muted); }
+.ticker span { font-size: 14px; color: var(--muted); }
 .sec { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; padding: 44px 0; border-bottom: 1px solid var(--line); }
 .sec:last-child { border-bottom: 0; }
 .sec-h { display: flex; gap: 10px; align-items: flex-start; }
@@ -256,10 +257,10 @@ button { font: inherit; }
 .mem li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; }
 .mem .role { font-size: 11.5px; color: var(--muted); }
 .mem .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mem .empty { color: #a7a9a2; }
+.mem .empty { color: var(--muted); }
 .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
 .flag { color: var(--amber); font-weight: 700; font-size: 12.5px; }
-.empty-col { font-size: 13px; color: var(--muted); padding: 10px 4px; }
+.empty-col { font-size: 14px; color: var(--muted); padding: 10px 4px; }
 
 /* ── 대화상자 ── */
 .overlay { position: fixed; inset: 0; background: rgba(23, 24, 28, .42); z-index: 50; display: grid; place-items: start center; overflow-y: auto; padding: 5vh 16px 40px; }
@@ -270,9 +271,8 @@ button { font: inherit; }
 .close:hover { background: var(--sunk); color: var(--ink); }
 .sheet { width: 100%; border-collapse: collapse; font-size: 14px; }
 .sheet th, .sheet td { border: 1px solid var(--line-2); padding: 8px 10px; text-align: left; vertical-align: top; }
-.sheet th { background: #f3f1ec; font-weight: 600; white-space: nowrap; }
+.sheet th { background: #f3f1ec; font-weight: 600; }
 .sheet th, .sheet td { white-space: nowrap; }
-.sheet td.long { white-space: pre-wrap; line-height: 1.6; }
 .kv { display: grid; grid-template-columns: 110px 1fr; gap: 8px 16px; margin: 0; font-size: 14px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; white-space: pre-wrap; }
