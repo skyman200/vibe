@@ -130,7 +130,7 @@ export function BoardView() {
           <div class="col-h"><h3>${col.label}</h3><span class="count">${cards.length}${cards.length !== col.count ? html`<small> / ${col.count}</small>` : ''}</span></div>
           <div class="col-note">${COL_NOTE[col.key] || ''}</div>
           <div class="cards">
-            ${cards.length ? cards.map((t) => html`<${Card} key=${t.id} t=${t} size=${size} onOpen=${setOpen} />`)
+            ${cards.length ? cards.map((t) => html`<${Card} key=${t.key} t=${t} size=${size} onOpen=${setOpen} />`)
               : html`<div class="empty-col">${needle || series ? '조건에 맞는 팀이 없습니다.' : '아직 없습니다.'}</div>`}
           </div>
         </section>`;

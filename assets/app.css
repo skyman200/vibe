@@ -1,10 +1,12 @@
 /* DIT 바이브코딩 해커톤 — 인쇄물(공지·안내문) 같은 편집 디자인.
-   원칙: 색은 잉크·종이·DIT 빨강 셋만, 경계는 가는 선, 굵은 선은 위쪽 규칙선에만. 세로 강조 막대 없음. */
+   원칙: 색은 잉크·종이·DIT 빨강 셋만, 경계는 가는 선, 굵은 선은 가로 규칙선에만. 세로 강조 막대 없음.
+   글자: 본문 15px, 문장으로 된 안내·설명은 14px 이상, 13px 이하는 표 머리·배지 같은 짧은 꼬리표에만.
+   흐린 글자(--muted)도 종이색 위에서 명암비 4.5:1 이상. */
 
 :root {
   --ink: #17181c;
   --ink-2: #44474f;
-  --muted: #74777f;
+  --muted: #65686f;
   --paper: #f6f5f1;
   --card: #ffffff;
   --sunk: #eeece6;
@@ -44,7 +46,7 @@ button { font: inherit; }
 .num { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--mono); }
 .muted { color: var(--muted); }
-.small { font-size: 13px; }
+.small { font-size: 14px; }
 .nowrap { white-space: nowrap; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
@@ -102,7 +104,7 @@ button { font: inherit; }
 .fs-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line-2); margin-bottom: 2px; }
 .fs-h h2 { font-size: 18px; margin: 0; }
 .fs-h .step { font: 600 12px/1 var(--mono); color: var(--red); margin-right: 8px; }
-.fs-h p { margin: 0; font-size: 13px; color: var(--muted); }
+.fs-h p { margin: 0; font-size: 14px; color: var(--muted); }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 20px; }
 .span-2 { grid-column: span 2; }
@@ -121,8 +123,8 @@ button { font: inherit; }
 .input::placeholder, .textarea::placeholder { color: #a3a59f; }
 .input[readonly] { background: var(--paper); }
 .field.bad .input, .field.bad .select, .field.bad .textarea { border-color: var(--red); background-color: #fffafa; }
-.hint { font-size: 13px; color: var(--muted); }
-.err { font-size: 13px; color: var(--red); font-weight: 500; }
+.hint { font-size: 14px; color: var(--muted); }
+.err { font-size: 14px; color: var(--red); font-weight: 500; }
 .counter { font: 12px/1 var(--mono); color: var(--muted); justify-self: end; margin-top: -2px; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg label { position: relative; }
@@ -147,10 +149,16 @@ button { font: inherit; }
 .consent-h strong { font-size: 15px; }
 .tag-req { font-size: 12px; font-weight: 700; color: var(--red); margin-right: 6px; }
 .tag-opt { font-size: 12px; font-weight: 700; color: var(--muted); margin-right: 6px; }
-.consent dl { margin: 0; padding: 12px 16px 14px; display: grid; grid-template-columns: 104px 1fr; gap: 6px 14px; font-size: 13.5px; color: var(--ink-2); border-top: 1px solid var(--line); background: #fcfbf8; border-radius: 0 0 8px 8px; }
+.consent dl { margin: 0; padding: 12px 16px 14px; display: grid; grid-template-columns: 112px 1fr; gap: 6px 14px; font-size: 14px; color: var(--ink-2); border-top: 1px solid var(--line); background: #fcfbf8; border-radius: 0 0 8px 8px; }
 .consent dt { color: var(--muted); }
 .consent dd { margin: 0; }
-.pledge { font-weight: 700; }
+/* 중요한 내용: 다른 내용(14px)보다 20% 이상 크게(17px), 굵게, 밑줄 — 개인정보 처리 방법에 관한 고시 제4조 */
+.consent dt.key { color: var(--ink); font-weight: 700; padding-top: 2px; }
+.consent dd.key { font-size: 17px; font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-color: var(--red); text-decoration-thickness: 1.5px; text-underline-offset: 4px; line-height: 1.55; }
+.consent-err { padding: 0 16px 12px; }
+.consent-notes { font-size: 14px; color: var(--ink-2); }
+.consent-notes p { margin: 0 0 4px; }
+.pledge { font-weight: 700; margin-top: 6px; }
 
 /* ── 공지·상자 ── */
 .box { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 20px; }
@@ -182,12 +190,12 @@ button { font: inherit; }
 .slots.done .slot.on { background: var(--green); }
 
 /* ── 개인정보 가림(서버가 원문을 보내지 않으므로 자리표시만 흐리게 보여 준다) ── */
-.veil { display: inline-block; position: relative; }
+.veil { display: inline-block; position: relative; white-space: nowrap; }
 .veil .blur { filter: blur(4.5px); user-select: none; pointer-events: none; font-family: var(--mono); font-size: .95em; color: var(--ink-2); }
 
 /* ── 홈 ── */
 .poster { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 56px; padding: 56px 0 44px; align-items: end; }
-.overline { font-size: 13px; color: var(--ink-2); letter-spacing: .01em; margin: 0; }
+.overline { font-size: 14px; color: var(--ink-2); letter-spacing: .01em; margin: 0; }
 .poster h1 { font-size: clamp(42px, 6.4vw, 76px); line-height: 1.02; letter-spacing: -0.045em; font-weight: 800; margin: 14px 0 20px; }
 .poster h1 .red { color: var(--red); }
 .poster .lede { font-size: 17px; color: var(--ink-2); max-width: 34ch; margin-bottom: 26px; }
@@ -234,7 +242,7 @@ button { font: inherit; }
 .col-h h3 { font-size: 15px; margin: 0; }
 .col-h .count { font: 700 13px/1 var(--mono); color: var(--ink-2); }
 .col-h .count small { color: var(--muted); font-weight: 500; }
-.col-note { font-size: 12.5px; color: var(--muted); padding: 0 4px 10px; margin-top: -6px; }
+.col-note { font-size: 14px; color: var(--muted); padding: 0 4px 10px; margin-top: -6px; }
 .cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); align-items: start; }
 .card { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 13px 14px 12px; cursor: pointer; color: inherit; font: inherit; transition: border-color .12s; }
 .card:hover { border-color: var(--line-2); }
@@ -263,6 +271,7 @@ button { font: inherit; }
 .sheet { width: 100%; border-collapse: collapse; font-size: 14px; }
 .sheet th, .sheet td { border: 1px solid var(--line-2); padding: 8px 10px; text-align: left; vertical-align: top; }
 .sheet th { background: #f3f1ec; font-weight: 600; white-space: nowrap; }
+.sheet th, .sheet td { white-space: nowrap; }
 .sheet td.long { white-space: pre-wrap; line-height: 1.6; }
 .kv { display: grid; grid-template-columns: 110px 1fr; gap: 8px 16px; margin: 0; font-size: 14px; }
 .kv dt { color: var(--muted); }
@@ -283,13 +292,12 @@ button { font: inherit; }
 /* ── 내 신청 ── */
 .status-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: end; padding-bottom: 20px; border-bottom: 2px solid var(--ink); margin-bottom: 28px; }
 .status-head h1 { font-size: 30px; margin: 4px 0 0; letter-spacing: -0.03em; }
-.status-big { font-size: 15px; }
 .stack { display: grid; gap: 28px; }
 .panel { display: grid; gap: 14px; }
 .panel-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line-2); }
 .panel-h h2 { font-size: 18px; margin: 0; }
 .members { width: 100%; border-collapse: collapse; font-size: 14px; }
-.members th, .members td { text-align: left; padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.members th, .members td { text-align: left; padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
 .members th { font-size: 12.5px; color: var(--muted); font-weight: 600; }
 .members tr.me td { background: #fbfaf6; }
 .checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 14px; }
@@ -310,7 +318,7 @@ button { font: inherit; }
 .jlist .todo { font-size: 12.5px; color: var(--muted); }
 .crit { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 20px; padding: 16px 0; border-bottom: 1px solid var(--line); align-items: center; }
 .crit h3 { font-size: 16px; margin: 0; }
-.crit p { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); }
+.crit p { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
 .stepper { display: flex; align-items: center; gap: 6px; }
 .stepper button { width: 42px; height: 42px; border: 1px solid var(--line-2); background: #fff; border-radius: 8px; font-size: 20px; cursor: pointer; color: var(--ink); }
 .stepper button:hover { border-color: var(--ink-2); }
@@ -331,7 +339,6 @@ button { font: inherit; }
 .dtable { width: 100%; border-collapse: collapse; font-size: 13.5px; background: #fff; }
 .dtable th, .dtable td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .dtable thead th { position: sticky; top: 0; background: #f3f1ec; font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--line-2); }
-.dtable td.wrap-cell { white-space: normal; min-width: 180px; }
 .dtable tbody tr:hover td { background: #fbfaf6; }
 .table-box { border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 70vh; }
 .deptlist { columns: 3 220px; column-gap: 24px; }
@@ -349,7 +356,6 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
   .jlist { position: static; }
 }
 @media (max-width: 720px) {
-  body { font-size: 15px; }
   .top-in { height: auto; flex-wrap: wrap; gap: 0; padding: 10px 16px 0; }
   .brand { padding-bottom: 6px; }
   .nav { width: 100%; margin: 0 -8px; overflow-x: auto; padding-bottom: 2px; }
@@ -374,22 +380,20 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
   .crit { grid-template-columns: 1fr; }
 }
 
-/* ── 보정 ── */
-.consent-err { padding: 0 16px 12px; }
-.pledge { margin-top: 6px; }
-.consents > p { margin: 0; }
+/* ── 부품 ── */
 .of { font-size: .55em; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .dialog-wide { width: min(1040px, 100%); }
 @media (max-width: 960px) { .aside-first { order: -1; } }
 .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 16px; }
 @media (max-width: 720px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.consents .small p { margin: 0 0 4px; }
-.veil { white-space: nowrap; }
-.members th, .members td, .sheet th, .sheet td { white-space: nowrap; }
-.sheet td.long { white-space: pre-wrap; }
 .deptlist > div { break-inside: avoid; }
 .templates { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .templates .small { margin-right: 4px; }
 .filepick { position: relative; overflow: hidden; }
 .filepick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
 .filepick:focus-within { outline: 2px solid var(--navy); outline-offset: 2px; }
+.storage { display: grid; gap: 6px; max-width: 420px; }
+.storage .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.storage .bar span { display: block; height: 100%; background: var(--ink); }
+.storage .bar span.high { background: var(--red); }
+.kv dd.key-text { font-size: 17px; font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-color: var(--red); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }

@@ -1,10 +1,11 @@
 // 공용: Preact(htm), API 호출, 세션, 라우터, 날짜·형식 도우미.
 import {
-  h, html, render, useState, useEffect, useRef, useMemo, useCallback, createContext, useContext,
+  html, render, useState, useEffect, useRef, useCallback, createContext, useContext,
 } from './vendor/preact-htm.js';
 import { API_URL, PUBLIC_URL } from './config.js';
+import { MAX_ATTEMPTS, FIRST_WAIT_MS, retryable, backoff } from './retry.js';
 
-export { h, html, render, useState, useEffect, useRef, useMemo, useCallback, createContext, useContext };
+export { html, render, useState, useEffect, useRef, useCallback, createContext, useContext };
 
 export class ApiFailure extends Error {
   constructor(message, code, field) {
@@ -14,34 +15,11 @@ export class ApiFailure extends Error {
   }
 }
 
-/** 공개 읽기(설정·참가현황)는 CDN 캐시를 거치는 같은 사이트의 /api/public 으로, 나머지는 Apps Script 로 보낸다. */
+/** 공개 읽기(설정·참가현황)는 CDN 캐시를 거치는 PUBLIC_URL 로, 나머지는 Apps Script(API_URL)로 보낸다. */
 const PUBLIC_ACTIONS = new Set(['config', 'board']);
-/**
- * 자동 재시도 규칙.
- * - BUSY: 서버가 잠금을 얻지 못해 아무것도 바꾸지 않은 경우 → 항상 다시 시도.
- * - NETWORK: 응답을 못 받은 경우(서버에 반영됐을 수도 있음) → 두 번 해도 안전한 요청만 다시 시도.
- *   아래 요청은 두 번 실행되면 안 되거나(새 코드 발급·삭제) 결과를 잃으면 안 되므로 NETWORK 재시도를 하지 않는다.
- */
-const NO_NETWORK_RETRY = new Set([
-  'adminCode', 'adminJudgeAdd', 'adminJudgeReset', 'adminJudgeRemove', 'adminMemberRemove', 'adminDeleteTeam', 'adminPurge',
-  'meWithdraw', 'meUpdate', 'teamDissolve', 'teamKick', 'teamTransfer', 'teamInvite',
-]);
-const MAX_ATTEMPTS = 6;
 const NETWORK_MESSAGE = '접속이 몰려 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
-async function requestOnce(action, payload) {
-  let res;
-  try {
-    res = PUBLIC_ACTIONS.has(action)
-      ? await fetch(`${PUBLIC_URL}?action=${action}`)
-      : await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, ...payload }),
-      });
-  } catch (e) {
-    throw new ApiFailure(NETWORK_MESSAGE, 'NETWORK');
-  }
+async function readJson(res) {
   let data;
   try {
     data = await res.json();
@@ -49,50 +27,103 @@ async function requestOnce(action, payload) {
     throw new ApiFailure(NETWORK_MESSAGE, 'NETWORK');
   }
   if (!data || typeof data.ok !== 'boolean') throw new ApiFailure(NETWORK_MESSAGE, 'NETWORK');
+  return data;
+}
+
+async function post(action, payload) {
+  let res;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, ...payload }),
+    });
+  } catch (e) {
+    throw new ApiFailure(NETWORK_MESSAGE, 'NETWORK');
+  }
+  return readJson(res);
+}
+
+/**
+ * 공개 읽기: CDN 을 먼저 쓰고, CDN(전달망)이 응답하지 못하면 Apps Script 에 직접 묻는다
+ * (전달망 장애로 사이트가 아예 열리지 않는 일이 없도록).
+ */
+async function getPublic(action) {
+  try {
+    const res = await fetch(`${PUBLIC_URL}?action=${action}`);
+    const data = await readJson(res);
+    if (data.ok || data.code !== 'NETWORK') return data;
+  } catch (e) {
+    if (e.code !== 'NETWORK') throw e;
+  }
+  return post(action, {});
+}
+
+async function requestOnce(action, payload) {
+  const data = PUBLIC_ACTIONS.has(action) ? await getPublic(action) : await post(action, payload);
   if (!data.ok) throw new ApiFailure(data.error || '요청을 처리하지 못했습니다.', data.code, data.field);
   return data;
 }
 
 /**
- * 요청 + 자동 재시도(지터 있는 지수 대기, 최대 6회). 여러 명이 한꺼번에 몰려도 사용자는 기다리기만 하면 된다.
+ * 요청 + 자동 재시도(retry.js 규칙: 지터 있는 지수 대기, 최대 6회). 여러 명이 한꺼번에 몰려도 사용자는 기다리기만 하면 된다.
  * 실패 오류의 ambiguous=true 는 '연결이 끊겨 서버에 반영됐을 수도 있음'을 뜻한다(호출 측이 상태를 다시 확인).
  */
 export async function api(action, payload = {}) {
-  let wait = 700;
+  let base = FIRST_WAIT_MS;
   let ambiguous = false;
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await requestOnce(action, payload);
     } catch (err) {
       if (err.code === 'NETWORK' && !PUBLIC_ACTIONS.has(action)) ambiguous = true;
-      const retryable = err.code === 'BUSY' || (err.code === 'NETWORK' && !NO_NETWORK_RETRY.has(action));
-      if (!retryable || attempt >= MAX_ATTEMPTS) {
+      if (!retryable(err.code, action) || attempt >= MAX_ATTEMPTS) {
         err.ambiguous = ambiguous;
         throw err;
       }
       window.dispatchEvent(new CustomEvent('api-retry', { detail: { action, attempt } }));
-      await new Promise((r) => setTimeout(r, wait * (0.5 + Math.random())));
-      wait = Math.min(wait * 2, 8000);
+      const b = backoff(base);
+      await new Promise((r) => setTimeout(r, b.wait));
+      base = b.next;
     }
   }
 }
 
-/** 역할별 로그인 토큰(member/judge/admin). 서버가 만료·무효를 판단한다. */
+/**
+ * 역할별 로그인 토큰. 같은 주소(skyman200.github.io)를 다른 페이지들과 함께 쓰므로 오래 남기지 않는다.
+ * - admin: 메모리에만(새로 고치면 다시 로그인) — 개인정보 원문을 볼 수 있는 토큰이라서
+ * - member·judge: 이 탭(sessionStorage)에만 — 탭을 닫으면 사라진다
+ */
+const memoryTokens = {};
+function tabStore() {
+  try { return window.sessionStorage; } catch (e) { return null; }
+}
 export const session = {
   get(role) {
-    try { return localStorage.getItem('vh.' + role) || ''; } catch (e) { return ''; }
+    if (role === 'admin') return memoryTokens.admin || '';
+    const st = tabStore();
+    return (st && st.getItem('vh.' + role)) || memoryTokens[role] || '';
   },
   set(role, token) {
-    try { localStorage.setItem('vh.' + role, token); } catch (e) { /* 사생활 보호 모드: 이번 탭에서만 유지 */ }
+    memoryTokens[role] = token;
+    const st = tabStore();
+    if (role !== 'admin' && st) st.setItem('vh.' + role, token);
   },
   clear(role) {
-    try { localStorage.removeItem('vh.' + role); } catch (e) { /* 무시 */ }
+    delete memoryTokens[role];
+    const st = tabStore();
+    if (st) st.removeItem('vh.' + role);
   },
 };
 
 /* ── 라우터(#/경로/인자?쿼리) ── */
 export function parseHash() {
-  const raw = decodeURIComponent((location.hash || '#/').slice(1));
+  let raw = (location.hash || '#/').slice(1);
+  try {
+    raw = decodeURIComponent(raw);
+  } catch (e) {
+    /* 깨진 %-표기는 그대로 둔다(앱이 멈추지 않게) */
+  }
   const [path, query] = raw.split('?');
   const parts = path.split('/').filter(Boolean);
   return { name: parts[0] || 'home', params: parts.slice(1), query: new URLSearchParams(query || '') };
@@ -150,12 +181,6 @@ function kstParts(v) {
 export function fmtWhen(v) {
   const p = kstParts(v);
   return p ? `${p.m}. ${p.d}.(${p.dow}) ${p.hh}:${p.mm}` : '';
-}
-
-/** 10. 7.(수) */
-export function fmtDay(v) {
-  const p = kstParts(v);
-  return p ? `${p.m}. ${p.d}.(${p.dow})` : '';
 }
 
 /** 9.28 15:02 — 목록용 짧은 표기 */

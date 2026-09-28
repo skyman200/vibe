@@ -2,7 +2,7 @@
 import {
   html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, STATUS_LABEL, josaRo,
 } from '../lib.js';
-import { Field, Modal, Slots, Status, useBusy } from '../ui.js';
+import { Field, LoadFailed, Modal, Slots, Status, useBusy } from '../ui.js';
 
 const COLUMNS = [
   ['draft', '팀 구성 중'],
@@ -91,7 +91,7 @@ function AdminCard({ t, onOpen, onDragStart, onDragEnd, dragging }) {
       ${t.members.map((m) => html`<li><span class="role">${m.role === 'leader' ? '팀장' : '팀원'}</span><span class="who">${m.name} · ${m.deptName}</span><span class="num small muted">${m.studentNo}</span></li>`)}
     </ul>
     <div class="card-foot">
-      <span>${short ? html`<span class="flag">${t.count}/4명 충원 필요</span>` : html`<span class="num">${t.count}/4명</span>`}${!t.form && ['draft', 'submitted'].includes(t.status) ? html` · <span class="flag">신청서 없음</span>` : ''}</span>
+      <span>${short ? html`<span class="flag">${t.count}/4명 충원 필요</span>` : html`<span class="num">${t.count}/4명</span>`}${!t.form && t.count >= 4 && t.status !== 'rejected' ? html` · <span class="flag">신청서 없음</span>` : ''}</span>
       <span>${t.repo.url ? 'GitHub 제출' : t.submittedAt ? `접수 ${fmtShort(t.submittedAt)}` : `생성 ${fmtShort(t.createdAt)}`}</span>
     </div>
   </article>`;
@@ -162,6 +162,7 @@ function TeamDrawer({ team, data, onClose, reload }) {
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [typed, setTyped] = useState('');
+  const [tempPin, setTempPin] = useState(null);
   const [busy, run] = useBusy();
   const judgeName = Object.fromEntries(data.judges.map((j) => [j.id, j.name]));
 
@@ -198,9 +199,17 @@ function TeamDrawer({ team, data, onClose, reload }) {
             <td>${m.role === 'leader' ? '팀장' : '팀원'}</td><td>${m.deptName}</td><td class="num">${m.studentNo}</td><td>${m.name}</td>
             <td class="num nowrap">${m.phone}</td><td>${m.email}</td><td>${m.shirt}</td><td>${m.agreeMedia ? '동의' : '미동의'}</td>
             <td class="small nowrap">${fmtShort(m.agreePrivacyAt)}</td>
-            <td><button class="link-btn" disabled=${busy} onClick=${() => { if (confirm(`${m.name} 님의 신청 정보를 삭제할까요?`)) call('adminMemberRemove', { key: m.key }, '참가자를 삭제했습니다.'); }}>삭제</button></td>
+            <td class="nowrap"><button class="link-btn" disabled=${busy} onClick=${async () => {
+              if (!confirm(`${m.name} 님의 비밀번호를 임시 비밀번호로 바꿀까요? 본인 확인을 마친 뒤에만 하세요.`)) return;
+              const res = await call('adminPinReset', { key: m.key }, '임시 비밀번호를 만들었습니다.');
+              if (res) setTempPin({ name: m.name, pin: res.pin });
+            }}>비밀번호 재설정</button>${' · '}<button class="link-btn" disabled=${busy} onClick=${() => { if (confirm(`${m.name} 님의 신청 정보를 삭제할까요?`)) call('adminMemberRemove', { key: m.key }, '참가자를 삭제했습니다.'); }}>삭제</button></td>
           </tr>`)}</tbody>
         </table></div>
+        ${tempPin ? html`<div class="notice ok" role="status" style="margin-top:12px">
+          <b>${tempPin.name}</b> 님의 임시 비밀번호: <span class="codeline">${tempPin.pin}</span>
+          <div class="small">본인에게만 전달하고, 로그인 뒤 「내 신청 → 정정 → 비밀번호 바꾸기」로 바꾸게 하세요. 이 창을 닫으면 다시 볼 수 없습니다.</div>
+        </div>` : ''}
       </section>
 
       <section class="panel">
@@ -308,7 +317,7 @@ function PeopleTab({ data, openTeam }) {
 function buildPrompt(data) {
   const selected = data.teams.filter((t) => t.status === 'selected').sort((a, b) => (Number(a.presentOrder) || 999) - (Number(b.presentOrder) || 999));
   const rubric = data.rubric.code.map((c) => `- ${c.label}(${c.max}점): ${c.desc}`).join('\n');
-  const teams = selected.map((t, i) => `${i + 1}. teamId=${t.id} / 팀명=${t.name} / 저장소=${t.repo.url || '(미제출)'} / 기준 커밋=${t.repo.pinnedSha || '(미고정 — 마감 커밋 고정 후 사용)'}`).join('\n');
+  const teams = selected.map((t, i) => `${i + 1}. teamId=${t.id} / 팀명=${t.name} / 저장소=${t.repo.url || '(미제출)'} / 기준 커밋=${t.repo.pinnedSha || '(기록 전 — 마감 커밋 기록 후 사용)'}`).join('\n');
   return `당신은 ${data.settings.eventName} 코드 심사위원입니다. 아래 모든 팀을 똑같은 기준으로 평가하세요.
 
 [평가 규칙]
@@ -354,19 +363,23 @@ function JudgingTab({ data, reload, openTeam }) {
     const res = await call('adminJudgeAdd', { name }, '심사위원을 추가했습니다.');
     if (res) { setIssued(res); setName(''); }
   };
-  const pin = async () => {
+  const pinned = (res) => notify(res.pins.length
+    ? `마감 커밋 기록 ${res.pins.filter((p) => p.ok).length}/${res.pins.length}팀`
+    : '새로 기록할 팀이 없습니다(모두 마감 시각에 기록됨).');
+  const pin = () => run(async () => {
     try {
-      const res = await api('adminPin', { token: token() });
-      notify(`커밋 고정 ${res.pins.filter((p) => p.ok).length}/${res.pins.length}팀`);
-      reload();
+      pinned(await api('adminPin', { token: token() }));
     } catch (err) {
-      if (err.code === 'EARLY' && confirm('아직 제출 마감 전입니다. 지금 시각까지의 커밋으로 고정할까요? 마감 후 다시 고정할 수 있습니다.')) {
-        const res = await api('adminPin', { token: token(), force: true });
-        notify(`커밋 고정 ${res.pins.filter((p) => p.ok).length}/${res.pins.length}팀`);
-        reload();
-      } else if (err.code !== 'EARLY') notify(err.message, 'err');
+      if (err.code !== 'EARLY') { notify(err.message, 'err'); return; }
+      if (!confirm('아직 제출 마감 전입니다. 지금의 최신 커밋을 임시로 기록할까요? 마감 시각에 자동으로 다시 기록합니다.')) return;
+      try {
+        pinned(await api('adminPin', { token: token(), force: true }));
+      } catch (e) {
+        notify(e.message, 'err');
+      }
     }
-  };
+    reload();
+  });
   const importBulk = () => run(async () => {
     let rows;
     try {
@@ -408,7 +421,7 @@ function JudgingTab({ data, reload, openTeam }) {
     <section class="panel">
       <div class="panel-h"><h2>코드 심사(50)</h2>
         <div class="btn-row">
-          <button class="btn btn-sm" onClick=${pin}>마감 커밋 고정</button>
+          <button class="btn btn-sm" disabled=${busy} onClick=${pin} title="마감 시각에 자동으로 기록합니다. 기록이 없는 팀만 지금 채웁니다.">마감 커밋 기록</button>
           <button class="btn btn-sm" onClick=${() => setShowPrompt(true)}>AI 심사 지시문</button>
           <button class="btn btn-sm" onClick=${() => { setBulk(''); setBulkResult(null); }}>점수 JSON 붙여넣기</button>
         </div>
@@ -535,7 +548,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       ${yn('selectionPublished', '선정 결과 공개', '켜면 참가자 화면과 참가현황에 선정·예비가 보입니다. 미선정 팀은 게시판에 나오지 않습니다.')}
       ${yn('resultsPublished', '시상 결과 공개', '켜면 참가현황 맨 위에 수상 팀이 나옵니다.')}
       <label class="check"><input type="checkbox" checked=${form.boardMode === 'contest'} onChange=${(e) => set('boardMode', e.target.checked ? 'contest' : 'recruit')} />
-        <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일).</div></span></label>
+        <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 선정 결과 공개 뒤에만).</div></span></label>
     </fieldset>
 
     <fieldset class="fs">
@@ -569,15 +582,22 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       <div class="grid-2">
         <div class="panel">
           <b>관리자 코드 바꾸기</b>
-          <p class="small muted" style="margin:0">새 코드를 만들면 기존 코드와 다른 관리자 로그인은 모두 끊깁니다. 새 코드가 화면에 나오기 전에 창을 닫지 마세요.</p>
+          <p class="small muted" style="margin:0">새 코드를 만들면 기존 코드와 다른 관리자 로그인은 모두 끊깁니다. 새 코드가 화면에 나오기 전에 창을 닫지 마세요. 코드를 잃어버렸으면 Apps Script 편집기에서 resetAdminCode 를 실행하면 실행 로그에 새 코드가 나옵니다.</p>
           ${newCode ? html`<p class="codeline">${newCode}</p><p class="small">이 코드를 안전한 곳에 적어 두세요. 다시 볼 수 없습니다.</p>` : ''}
           <div><button type="button" class="btn" disabled=${busy} onClick=${() => { if (confirm('관리자 코드를 새로 만들까요?')) run(async () => {
             try { const res = await api('adminCode', { token: token() }); session.set('admin', res.token); setNewCode(res.code); onCodeChanged(); } catch (err) { notify(err.message, 'err'); }
           }); }}>새 관리자 코드 만들기</button></div>
         </div>
+        <div class="panel">
+          <b>저장 공간</b>
+          <div class="storage">
+            <div class="bar"><span class=${data.storage.bytes / data.storage.limit > 0.8 ? 'high' : ''} style=${`width:${Math.min(100, (data.storage.bytes / data.storage.limit) * 100).toFixed(1)}%`}></span></div>
+            <span class="small muted num">${Math.round(data.storage.bytes / 1024)}KB / ${Math.round(data.storage.limit / 1024)}KB 사용. 80%를 넘으면 장난으로 만든 '팀 구성 중' 팀을 정리하세요.</span>
+          </div>
+        </div>
       </div>
       <div class="btn-row">
-        <span class="small muted">보기용 구글 스프레드시트 사본(5분마다 자동 갱신, 소유자 계정으로만 열림): <a href=${data.sheetUrl} target="_blank" rel="noopener">열기</a>. 시트를 고쳐도 원본에는 반영되지 않습니다. 신청서 파일 폴더(구글 드라이브): <a href=${data.formFolderUrl} target="_blank" rel="noopener">열기</a>.</span>
+        <span class="small muted">소유자 계정으로만 열립니다 — 보기용 스프레드시트 사본(5분마다 자동 갱신, 고쳐도 원본에는 반영되지 않음): <a href=${data.sheetUrl} target="_blank" rel="noopener">열기</a> · 신청서 파일 폴더: <a href=${data.formFolderUrl} target="_blank" rel="noopener">열기</a> · 감사 기록(로그인·내려받기·상태 변경, 파기 대상 아님): <a href=${data.auditUrl} target="_blank" rel="noopener">열기</a>.</span>
         <button type="button" class="btn btn-sm" disabled=${busy} onClick=${() => run(async () => {
           try { const res = await api('adminSync', { token: token() }); notify(res.message); } catch (err) { notify(err.message, 'err'); }
         })}>지금 갱신</button>
@@ -586,10 +606,10 @@ function SettingsTab({ data, reload, onCodeChanged }) {
 
     <fieldset class="fs">
       <div class="fs-h"><h2>개인정보 파기</h2><p>보유 기간이 끝나면 실행합니다</p></div>
-      <p class="small" style="margin:0">팀·참가자·점수·심사위원 정보를 모두 지우고, 신청서 파일은 드라이브 휴지통으로 보내며, 스프레드시트 사본도 비웁니다. 되돌릴 수 없으니 먼저 [엑셀로 저장]으로 보관할 자료를 받아 두세요. 파기를 끝내려면 드라이브 휴지통을 비우고, 구글 시트는 '버전 기록'에 이전 내용이 남으므로 사본 파일도 삭제하세요. 확인 문구 <b>전체 파기</b>를 입력합니다.</p>
+      <p class="small" style="margin:0">팀·참가자·점수·심사위원 정보를 모두 지웁니다. 신청서 폴더의 파일과 보기용 스프레드시트 사본 파일은 드라이브 휴지통으로 보내고 사본은 새로 만듭니다('버전 기록'까지 지우기 위해). 되돌릴 수 없으니 먼저 [엑셀로 저장]으로 보관할 자료를 받아 두세요. 파기를 끝내려면 드라이브 휴지통을 비우세요. 확인 문구 <b>전체 파기</b>를 입력합니다.</p>
       <div class="linkrow" style="max-width:420px"><input class="input" value=${purge} onInput=${(e) => setPurge(e.target.value)} aria-label="확인 문구" />
         <button type="button" class="btn btn-danger" disabled=${busy || purge !== '전체 파기'} onClick=${() => run(async () => {
-          try { const res = await api('adminPurge', { token: token(), confirm: purge }); notify(`파기 완료: 팀 ${res.purged.teams}개, 참가자 ${res.purged.members}명, 신청서 파일 ${res.files.trashed}개${res.files.failed ? `(삭제 실패 ${res.files.failed}개 — 드라이브에서 직접 지워 주세요)` : ''} · 스프레드시트 사본도 비웠습니다.`, res.files.failed ? 'err' : 'ok'); setPurge(''); reload(); } catch (err) { notify(err.message, 'err'); }
+          try { const res = await api('adminPurge', { token: token(), confirm: purge }); notify(`파기 완료: 팀 ${res.purged.teams}개, 참가자 ${res.purged.members}명, 신청서 파일 ${res.files.trashed}개${res.files.failed ? `(삭제 실패 ${res.files.failed}개 — 드라이브에서 직접 지워 주세요)` : ''} · 보기용 사본은 새 파일로 바꿨습니다. 드라이브 휴지통을 비워야 파기가 끝납니다.`, res.files.failed ? 'err' : 'ok'); setPurge(''); reload(); } catch (err) { notify(err.message, 'err'); }
         })}>전체 파기</button></div>
     </fieldset>
   </form>`;
@@ -612,18 +632,21 @@ export function AdminView() {
       setData(res);
       setState('ready');
     } catch (err) {
+      setMessage(err.message);
       if (err.code === 'AUTH') {
         session.clear('admin');
-        setMessage(err.message);
         setState('login');
-      } else {
+      } else if (data) {
         notify(err.message, 'err');
+      } else {
+        setState('failed');
       }
     }
   };
   useEffect(() => { if (state === 'loading') load(); }, [state]);
 
   if (state === 'login') return html`<${AdminLogin} message=${message} onDone=${() => { setMessage(''); setState('loading'); }} />`;
+  if (state === 'failed' && !data) return html`<${LoadFailed} message=${message} retry=${() => setState('loading')} />`;
   if (!data) return html`<div class="wrap page"><p class="muted">불러오는 중…</p></div>`;
 
   const ph = data.phase;

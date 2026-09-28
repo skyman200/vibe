@@ -9,21 +9,12 @@ import {
 
 const AI_TOOLS = ['Claude Code', 'Codex', 'ChatGPT', 'Gemini', 'Cursor', 'GitHub Copilot'];
 
-const TEAM_RULES = {
-  name: ['팀명', 2, 20],
-  topic: ['참가 주제(안)', 2, 60],
-  projectName: ['프로젝트명(안)', 2, 60],
-  summary: ['프로젝트 개요', 10, 1000],
-  aiTools: ['활용 예정 AI 도구', 2, 200],
-  motivation: ['참가 동기 및 기대사항', 10, 1000],
-};
-
 /**
- * 응답을 못 받고 다시 보낸 요청이 '이미 있음'으로 거절되면, 첫 요청이 실제로 반영됐는지
- * 방금 입력한 학번·비밀번호로 로그인해 확인한다(맞으면 성공으로 이어 간다).
+ * 응답을 못 받고 다시 보낸 요청이 '이미 있음'(학번 중복)이나 '자리 없음'(4번째 합류가 이미 반영됨)으로 거절되면,
+ * 첫 요청이 실제로 반영됐는지 방금 입력한 학번·비밀번호로 로그인해 확인한다(맞으면 성공으로 이어 간다).
  */
 async function recoverAfterAmbiguous(err, me, matches) {
-  if (!err.ambiguous || err.code !== 'DUPLICATE') return null;
+  if (!err.ambiguous || !['DUPLICATE', 'CLOSED'].includes(err.code)) return null;
   try {
     const res = await api('login', { studentNo: digits(me.studentNo), pin: me.pin });
     return matches(res.view) ? res : null;
@@ -32,9 +23,10 @@ async function recoverAfterAmbiguous(err, me, matches) {
   }
 }
 
-export function checkTeam(t) {
+/** 팀 항목 규칙은 서버가 준다(config.teamFields: { 항목: [라벨, 최소, 최대] }). */
+export function checkTeam(t, rules) {
   const e = {};
-  Object.entries(TEAM_RULES).forEach(([k, [label, min, max]]) => {
+  Object.entries(rules).forEach(([k, [label, min, max]]) => {
     const v = String(t[k] || '').trim();
     if (!v) e[`team.${k}`] = `${label}${josa(label, '을', '를')} 입력해 주세요.`;
     else if (v.length < min) e[`team.${k}`] = `${min}자 이상 입력해 주세요.`;
@@ -45,8 +37,10 @@ export function checkTeam(t) {
 }
 
 export function TeamFields({ t, set, errors, config }) {
+  const rules = config.teamFields;
+  const max = (k) => rules[k][2];
   const err = (k) => errors[`team.${k}`];
-  const count = (k) => html`<span class="counter">${String(t[k] || '').length}/${TEAM_RULES[k][2]}</span>`;
+  const count = (k) => html`<span class="counter">${String(t[k] || '').length}/${max(k)}</span>`;
   const toggleTool = (tool) => {
     const list = String(t.aiTools || '').split(',').map((s) => s.trim()).filter(Boolean);
     const next = list.includes(tool) ? list.filter((x) => x !== tool) : list.concat(tool);
@@ -54,34 +48,35 @@ export function TeamFields({ t, set, errors, config }) {
   };
   const tools = String(t.aiTools || '').split(',').map((s) => s.trim());
   return html`<div class="grid-2">
-    <${Field} label="팀명" id="team-name" required error=${err('name')} hint="2~20자. 다른 팀과 겹칠 수 없습니다.">
-      <input id="team-name" class="input" maxlength="20" value=${t.name} onInput=${(e) => set('name', e.target.value)} />
+    <${Field} label="팀명" id="team-name" required error=${err('name')} hint=${`${rules.name[1]}~${max('name')}자. 다른 팀과 겹칠 수 없습니다.`}>
+      <input id="team-name" class="input" maxlength=${max('name')} value=${t.name} onInput=${(e) => set('name', e.target.value)} />
     <//>
     <${Field} label="대표 학과(추천 학과)" id="team-repDept" required error=${err('repDept')} hint="팀을 추천하는 학과. 보통 팀장 학과입니다.">
       <${DeptSelect} id="team-repDept" value=${t.repDept} departments=${config.departments} onChange=${(v) => set('repDept', v)} />
     <//>
     <${Field} label="참가 주제(안)" id="team-topic" required error=${err('topic')} hint="예: 우리 학과 실습 일정 관리의 불편 해결">
-      <input id="team-topic" class="input" maxlength="60" value=${t.topic} onInput=${(e) => set('topic', e.target.value)} />
+      <input id="team-topic" class="input" maxlength=${max('topic')} value=${t.topic} onInput=${(e) => set('topic', e.target.value)} />
     <//>
     <${Field} label="프로젝트명(안)" id="team-projectName" required error=${err('projectName')}>
-      <input id="team-projectName" class="input" maxlength="60" value=${t.projectName} onInput=${(e) => set('projectName', e.target.value)} />
+      <input id="team-projectName" class="input" maxlength=${max('projectName')} value=${t.projectName} onInput=${(e) => set('projectName', e.target.value)} />
     <//>
     <${Field} label="프로젝트 개요" id="team-summary" required error=${err('summary')} cls="span-2" hint="해결하려는 문제나 아이디어를 적어 주세요.">
-      <textarea id="team-summary" class="textarea" maxlength="1000" value=${t.summary} onInput=${(e) => set('summary', e.target.value)}></textarea>
+      <textarea id="team-summary" class="textarea" maxlength=${max('summary')} value=${t.summary} onInput=${(e) => set('summary', e.target.value)}></textarea>
       ${count('summary')}
     <//>
     <${Field} label="활용 예정 AI 도구" id="team-aiTools" required error=${err('aiTools')} cls="span-2">
-      <input id="team-aiTools" class="input" maxlength="200" value=${t.aiTools} onInput=${(e) => set('aiTools', e.target.value)} placeholder="눌러서 고르거나 직접 적어 주세요" />
+      <input id="team-aiTools" class="input" maxlength=${max('aiTools')} value=${t.aiTools} onInput=${(e) => set('aiTools', e.target.value)} placeholder="눌러서 고르거나 직접 적어 주세요" />
       <div class="chips">${AI_TOOLS.map((tool) => html`<button type="button" class="chip" aria-pressed=${tools.includes(tool) ? 'true' : 'false'} onClick=${() => toggleTool(tool)}>${tool}</button>`)}</div>
     <//>
     <${Field} label="참가 동기 및 기대사항" id="team-motivation" required error=${err('motivation')} cls="span-2">
-      <textarea id="team-motivation" class="textarea" maxlength="1000" value=${t.motivation} onInput=${(e) => set('motivation', e.target.value)}></textarea>
+      <textarea id="team-motivation" class="textarea" maxlength=${max('motivation')} value=${t.motivation} onInput=${(e) => set('motivation', e.target.value)}></textarea>
       ${count('motivation')}
     <//>
   </div>`;
 }
 
-export function InviteBox({ team, compact }) {
+/** onRotate(팀장 「내 신청」에서만): 초대 코드를 새로 만들어 지금 링크를 쓸 수 없게 한다. */
+export function InviteBox({ team, compact, onRotate }) {
   const { notify } = useApp();
   const link = inviteLink(team.id, team.inviteCode);
   const manual = `${team.id}-${team.inviteCode}`;
@@ -100,6 +95,7 @@ export function InviteBox({ team, compact }) {
       <div><span class="small muted">초대 코드 </span><span class="code-big">${manual}</span></div>
       <button type="button" class="btn btn-sm" onClick=${() => copy(message, '보낼 문구')}>카톡용 문구 복사</button>
     </div>
+    ${onRotate ? html`<p class="small muted" style="margin:0">링크가 모르는 사람에게 퍼졌다면 <button type="button" class="link-btn" onClick=${onRotate}>새 링크 만들기</button> — 지금 링크로는 더 이상 합류할 수 없게 됩니다.</p>` : ''}
   </div>`;
 }
 
@@ -136,7 +132,7 @@ export function ApplyView() {
   if (created) {
     return html`<div class="wrap page">
       <div class="page-h"><div><p class="overline">팀 만들기 완료 · 1/4명</p><h1>${created.team.name}</h1>
-        <p>아직 신청 전입니다. 팀원 3명이 합류하고 신청서 파일을 올리면 팀장이 「내 신청」에서 제출합니다.</p></div></div>
+        <p>아직 신청 전입니다. 팀원 3명이 합류하면 팀장이 「내 신청」에서 신청서 파일을 올리고 제출합니다.</p></div></div>
       <div class="two-col">
         <${InviteBox} team=${created.team} />
         <div class="panel">
@@ -144,8 +140,8 @@ export function ApplyView() {
           <${Slots} count=${created.team.count} />
           <ol class="bullets" style="padding:0">
             <li>팀원 3명이 초대 링크로 합류합니다(각자 본인 정보·동의).</li>
-            <li>신청서 양식에 팀 정보를 적고 팀장이 서명한 파일(PDF·워드·한글)을 <a href="#/me">내 신청</a>에 올립니다.</li>
-            <li>4명이 모이면 팀장이 <a href="#/me">내 신청</a>에서 [신청서 제출]을 누릅니다.</li>
+            <li>4명이 모이면 신청서 양식에 팀 정보를 적고 팀장이 서명한 파일(PDF·워드·한글)을 <a href="#/me">내 신청</a>에 올립니다.</li>
+            <li>팀장이 <a href="#/me">내 신청</a>에서 [신청서 제출]을 누릅니다.</li>
             <li>로그인은 학번과 방금 정한 비밀번호로 합니다.</li>
           </ol>
           <${FormTemplates} />
@@ -157,7 +153,7 @@ export function ApplyView() {
 
   const submit = (ev) => {
     ev.preventDefault();
-    const e = { ...checkTeam(team), ...checkMember(me, { withPin: true }), ...checkAgree(agree, config.training.notice) };
+    const e = { ...checkTeam(team, config.teamFields), ...checkMember(me, { withPin: true }), ...checkAgree(agree, config.training.notice) };
     setErrors(e);
     if (Object.keys(e).length) {
       focusFirstError();
@@ -194,7 +190,7 @@ export function ApplyView() {
     <div class="page-h">
       <div>
         <h1>팀 만들기</h1>
-        <p>팀장이 먼저 팀을 만들고 팀원 3명에게 초대 링크를 보냅니다. <b>4명이 모두 합류하고 신청서 파일을 올려야</b> 제출할 수 있습니다.</p>
+        <p>팀장이 먼저 팀을 만들고 팀원 3명에게 초대 링크를 보냅니다. <b>4명이 모두 합류한 뒤 신청서 파일을 올려야</b> 제출할 수 있습니다.</p>
       </div>
       <a class="btn btn-sm" href="#/join">초대 코드로 합류하기</a>
     </div>
@@ -228,16 +224,16 @@ function ManualCode() {
   const [error, setError] = useState('');
   const submit = (e) => {
     e.preventDefault();
-    const m = /^\s*(T[0-9A-Z]{6})\s*-\s*([0-9A-Z]{6})\s*$/i.exec(code);
+    const m = /^\s*(T[0-9A-Z]{6})\s*-\s*([0-9A-Z]{8})\s*$/i.exec(code);
     if (!m) {
-      setError('초대 코드는 T로 시작하는 7자리-6자리 형식입니다. (예: T4F7KQ2-X9MPA3)');
+      setError('초대 코드는 T로 시작하는 7자리-8자리 형식입니다. (예: T4F7KQ2-X9MPA3WR)');
       return;
     }
     go(`#/join/${m[1].toUpperCase()}/${m[2].toUpperCase()}`);
   };
   return html`<form class="box" onSubmit=${submit} style="max-width:520px">
     <${Field} label="초대 코드" id="join-code" error=${error} hint="팀장에게 받은 링크를 열면 이 단계는 건너뜁니다.">
-      <input id="join-code" class="input mono" autocomplete="off" placeholder="T4F7KQ2-X9MPA3" value=${code} onInput=${(e) => setCode(e.target.value.toUpperCase())} />
+      <input id="join-code" class="input mono" autocomplete="off" placeholder="T4F7KQ2-X9MPA3WR" value=${code} onInput=${(e) => setCode(e.target.value.toUpperCase())} />
     <//>
     <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" type="submit">팀 확인</button></div>
   </form>`;

@@ -29,6 +29,10 @@ export function Seg({ name, options, value, onChange }) {
   </div>`;
 }
 
+/**
+ * 동의 항목. rows: [제목, 내용, 중요?] — 중요한 내용(보유·이용 기간, 국외 이전의 받는 자·목적)은
+ * 「개인정보 처리 방법에 관한 고시」 제4조에 따라 다른 내용보다 20% 이상 크고 굵게, 밑줄로 구별한다.
+ */
 export function Consent({ id, required, title, rows, checked, onChange, error, children }) {
   return html`<div class=${`consent${error ? ' bad' : ''}`}>
     <label class="check consent-h" for=${id}>
@@ -39,7 +43,9 @@ export function Consent({ id, required, title, rows, checked, onChange, error, c
         ${children}
       </span>
     </label>
-    ${rows && rows.length ? html`<dl>${rows.map(([k, v]) => html`<dt>${k}</dt><dd>${v}</dd>`)}</dl>` : ''}
+    ${rows && rows.length ? html`<dl>${rows.map(([k, v, key]) => (key
+      ? html`<dt class="key">${k}</dt><dd class="key">${v}</dd>`
+      : html`<dt>${k}</dt><dd>${v}</dd>`))}</dl>` : ''}
     ${error ? html`<div class="err consent-err" role="alert">${error}</div>` : ''}
   </div>`;
 }
@@ -191,15 +197,22 @@ export function ConsentFields({ agree, setAgree, errors, config }) {
       <div class="hint">${config.training.detail}</div>
     <//>
     <${Consent} id="agree-privacy" required title="개인정보 수집·이용 동의" checked=${agree.privacy} onChange=${set('privacy')} error=${errors['agree.privacy']}
-      rows=${[['수집·이용 목적', p.collect.purpose], ['수집 항목', p.collect.items], ['보유·이용 기간', p.collect.retention], ['동의 거부 권리', p.collect.refuse]]} />
+      rows=${[['수집·이용 목적', p.collect.purpose], ['수집 항목', p.collect.items], ['보유·이용 기간', p.collect.retention, true], ['동의 거부 권리', p.collect.refuse]]} />
     <${Consent} id="agree-overseas" required title="개인정보 국외 이전(클라우드 보관) 동의" checked=${agree.overseas} onChange=${set('overseas')} error=${errors['agree.overseas']}
-      rows=${[['이전 항목', p.overseas.items], ['이전받는 자', p.overseas.recipient], ['이전 국가', p.overseas.country], ['이전 시기·방법', p.overseas.when], ['이용 목적', p.overseas.purpose], ['보유·이용 기간', p.overseas.retention], ['동의 거부 권리', p.overseas.refuse]]} />
+      rows=${[['이전 항목', p.overseas.items], ['이전받는 자', p.overseas.recipient, true], ['이전 국가', p.overseas.country], ['이전 시기·방법', p.overseas.when], ['이용 목적', p.overseas.purpose, true], ['보유·이용 기간', p.overseas.retention, true], ['거부 방법과 영향', p.overseas.refuse]]} />
     <${Consent} id="agree-media" title="사진·영상 촬영 및 홍보 활용 동의" checked=${agree.media} onChange=${set('media')}
-      rows=${[['이용 목적', p.media.purpose], ['항목', p.media.items], ['보유·이용 기간', p.media.retention], ['동의 거부 권리', p.media.refuse]]} />
-    <div class="small muted">
+      rows=${[['이용 목적', p.media.purpose], ['항목', p.media.items], ['보유·이용 기간', p.media.retention, true], ['동의 거부 권리', p.media.refuse]]} />
+    <div class="consent-notes">
       <p>처리 위탁 — ${p.processor}</p>
       <p>공개 범위 — ${p.disclosure} <a href="#/privacy">개인정보 처리 안내 전문</a></p>
     </div>
+  </div>`;
+}
+
+/** 화면 자료를 불러오지 못했을 때(로그인 만료가 아닌 오류): 로그인은 유지하고 다시 시도하게 한다. */
+export function LoadFailed({ message, retry }) {
+  return html`<div class="wrap page">
+    <div class="notice bad"><b>불러오지 못했습니다.</b> ${message} <button class="link-btn" onClick=${retry}>다시 시도</button></div>
   </div>`;
 }
 

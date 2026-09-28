@@ -1,6 +1,6 @@
 // 심사위원: 코드로 로그인 → 발표 순서대로 팀을 골라 대면 심사(50점) 채점.
 import { html, useState, useEffect, useApp, api, session, fmtShort } from '../lib.js';
-import { Field, useBusy } from '../ui.js';
+import { Field, LoadFailed, useBusy } from '../ui.js';
 
 const LEVELS = ['매우 우수', '우수', '보통', '미흡', '매우 미흡'];
 const levelPoints = (max) => [1, 0.8, 0.6, 0.4, 0.2].map((r) => Math.round(max * r));
@@ -127,14 +127,19 @@ export function JudgeView() {
       setSel((cur) => cur || (res.teams.find((t) => !t.score) || res.teams[0] || {}).id || '');
       setState('ready');
     } catch (err) {
-      if (err.code === 'AUTH') session.clear('judge');
       setMessage(err.message);
-      setState('login');
+      if (err.code === 'AUTH') {
+        session.clear('judge');
+        setState('login');
+      } else {
+        setState('failed');
+      }
     }
   };
   useEffect(() => { if (state === 'loading') load(); }, [state]);
 
   if (state === 'login') return html`<${JudgeLogin} message=${message} onDone=${() => { setMessage(''); setState('loading'); }} />`;
+  if (state === 'failed' && !data) return html`<${LoadFailed} message=${message} retry=${() => setState('loading')} />`;
   if (!data) return html`<div class="wrap page"><p class="muted">불러오는 중…</p></div>`;
 
   const team = data.teams.find((t) => t.id === sel);

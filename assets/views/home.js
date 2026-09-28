@@ -22,11 +22,13 @@ const SCHEDULE = [
   ]],
 ];
 
+/** 팀당 상금(공지 기준). 시상 팀 수는 관리자 설정(config.event.awards)을 따른다. */
 const PRIZES = [
-  ['금상', '1팀', '2,000,000원'],
-  ['은상', '2팀', '각 1,400,000원'],
-  ['동상', '2팀', '각 1,000,000원'],
+  ['gold', '금상', 2000000],
+  ['silver', '은상', 1400000],
+  ['bronze', '동상', 1000000],
 ];
+const won = (n) => `${n.toLocaleString('ko-KR')}원`;
 
 function applyStateText(ph, e) {
   if (ph.apply === 'before') return { big: untilText(e.applyStart), small: `${fmtWhen(e.applyStart)} 접수 시작` };
@@ -60,6 +62,9 @@ export function HomeView() {
   const e = config.event;
   const ph = config.phase;
   const state = applyStateText(ph, e);
+  const awards = e.awards;
+  const awardTeams = PRIZES.reduce((a, [k]) => a + awards[k], 0);
+  const awardTotal = PRIZES.reduce((a, [k, , amount]) => a + awards[k] * amount, 0);
   const canCreate = ph.apply === 'open';
 
   return html`<div class="wrap">
@@ -109,8 +114,8 @@ export function HomeView() {
           <p>팀명과 참가 주제, 프로젝트 구상, 본인 정보를 적고 동의하면 팀 초대 링크가 만들어집니다.</p></li>
         <li><span class="n">02</span><h3>팀원 3명이 합류합니다</h3>
           <p>초대 링크를 받은 팀원이 각자 본인 정보를 입력하고 직접 동의합니다. 다른 사람의 정보를 대신 적지 않습니다.</p></li>
-        <li><span class="n">03</span><h3>신청서를 올리고 제출합니다</h3>
-          <p>양식에 적고 팀장이 서명한 신청서 파일(PDF·워드·한글)을 올린 뒤, 4명이 모이면 팀장이 제출합니다. 4인 1조가 아니면 제출되지 않고, 접수 후 심사를 거쳐 ${ph.selectTarget}팀을 선발해 안내합니다.</p></li>
+        <li><span class="n">03</span><h3>4명이 모이면 신청서를 올리고 제출</h3>
+          <p>팀원 4명이 모두 합류해 각자 동의하면, 팀장이 양식에 적고 서명한 신청서 파일(PDF·워드·한글)을 올리고 제출합니다. 4인 1조가 아니면 올리기와 제출이 되지 않습니다. 접수 후 심사를 거쳐 ${ph.selectTarget}팀을 선발해 안내합니다.</p></li>
       </ol>
       <div style="margin-top:18px"><${FormTemplates} /></div>
       <p class="small muted" style="margin-top:18px">팀을 꾸리기 어려운 개인은 AI허브센터(${e.contact.phone})로 연락하면 팀 매칭을 도와드립니다.</p>
@@ -139,8 +144,10 @@ export function HomeView() {
     <${Sec} n="4" title="시상" id="prize">
       <table class="table">
         <thead><tr><th>구분</th><th>팀 수</th><th>상금</th></tr></thead>
-        <tbody>${PRIZES.map(([a, b, c]) => html`<tr><td><b>${a}</b></td><td class="num">${b}</td><td class="num">${c}</td></tr>`)}</tbody>
-        <tfoot><tr><td>합계</td><td class="num">5팀</td><td class="num">6,800,000원</td></tr></tfoot>
+        <tbody>${PRIZES.filter(([k]) => awards[k] > 0).map(([k, label, amount]) => html`<tr>
+          <td><b>${label}</b></td><td class="num">${awards[k]}팀</td><td class="num">${awards[k] > 1 ? '각 ' : ''}${won(amount)}</td>
+        </tr>`)}</tbody>
+        <tfoot><tr><td>합계</td><td class="num">${awardTeams}팀</td><td class="num">${won(awardTotal)}</td></tr></tfoot>
       </table>
       <p class="small muted" style="margin-top:10px">상금은 팀 단위로 지급합니다. 교육을 이수하고 결과물을 제출한 참가자에게 디지털 배지를 발급합니다.</p>
     <//>

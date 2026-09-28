@@ -129,4 +129,9 @@ function App() {
   <//>`;
 }
 
-render(html`<${App} />`, document.getElementById('app'));
+// 다른 사이트가 이 화면을 틀(iframe) 안에 넣어 클릭을 가로채지 못하게 한다(GitHub Pages 는 헤더를 못 붙이므로 스크립트로).
+if (window.top !== window.self) {
+  document.getElementById('app').textContent = '이 화면은 다른 사이트 안에서 열 수 없습니다.';
+} else {
+  render(html`<${App} />`, document.getElementById('app'));
+}

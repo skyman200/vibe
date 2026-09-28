@@ -3,7 +3,7 @@ import {
   html, useState, useEffect, useApp, api, session, digits, fmtWhen, fileToBase64, STATUS_LABEL,
 } from '../lib.js';
 import {
-  Field, Modal, Slots, Status, Veil, MemberFields, FormTemplates, useBusy, checkMember, serverErrors, focusFirstError,
+  Field, LoadFailed, Modal, Slots, Status, Veil, MemberFields, FormTemplates, useBusy, checkMember, serverErrors, focusFirstError,
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
 
@@ -11,7 +11,7 @@ const CHECK_LABEL = { ok: '확인 완료', warn: '확인 필요', missing: '찾�
 const CHECK_TONE = { ok: 'ok', warn: 'warn', missing: 'bad', error: 'bad' };
 
 function Login({ onDone, message }) {
-  const { notify } = useApp();
+  const { config, notify } = useApp();
   const [studentNo, setStudentNo] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState(message || '');
@@ -46,7 +46,8 @@ function Login({ onDone, message }) {
         <div class="panel-h"><h2>아직 신청하지 않았다면</h2></div>
         <p class="muted" style="margin:0">팀장은 팀을 만들고, 팀원은 팀장이 보낸 초대 링크로 합류합니다.</p>
         <div class="btn-row"><a class="btn" href="#/apply">팀 만들기</a><a class="btn" href="#/join">초대 코드로 합류</a></div>
-        <p class="small muted">비밀번호를 잊었다면 문의처로 연락해 주세요. 본인 확인 후 도와드립니다.</p>
+        <p class="small muted">비밀번호를 잊었다면 문의처로 연락해 주세요. 본인 확인 후 임시 비밀번호를 알려 드립니다.</p>
+        <div class="mustread"><span class="label-red">필독</span><div><strong>${config.training.notice}</strong><p>${config.training.detail}</p></div></div>
       </div>
     </div>
   </div>`;
@@ -61,22 +62,23 @@ function StatusNotice({ view, config }) {
       ${leader ? '4명이 모이고 신청서 파일을 올리면 아래 [신청서 제출]을 눌러 주세요.' : '4명이 모이면 팀장이 신청서 파일을 올리고 제출합니다.'}
     </div>`;
   }
+  const refill = t.count < config.teamSize
+    ? html` <b>팀원이 빠져 지금 ${t.count}명입니다.</b> ${leader ? '아래 초대 링크로 새 팀원을 받은 뒤 신청서 파일을 다시 올려 주세요.' : '팀장이 새 팀원을 받고 신청서를 다시 올립니다.'}`
+    : '';
   if (t.status === 'submitted') {
-    return html`<div class="notice ok"><b>접수 완료</b> (${fmtWhen(t.submittedAt)}). 심사를 거쳐 선발 결과를 이 화면과 연락처로 안내합니다.</div>`;
+    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>접수 완료</b> (${fmtWhen(t.submittedAt)}). 심사를 거쳐 선발 결과를 이 화면과 연락처로 안내합니다.${refill}</div>`;
   }
   if (t.status === 'selected') {
-    return html`<div class="notice ok"><b>본선 참가팀으로 선정되었습니다.</b> ${config.training.notice} ${t.count < config.teamSize ? `지금 ${t.count}명이라 충원이 필요합니다. 문의처로 연락해 주세요.` : ''}</div>`;
+    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>본선 참가팀으로 선정되었습니다.</b> ${config.training.notice}${refill}</div>`;
   }
   if (t.status === 'waitlist') return html`<div class="notice warn"><b>예비 팀입니다.</b> 선정 팀에 결원이 생기면 차례로 연락드립니다.</div>`;
   return html`<div class="notice"><b>이번에는 선정되지 않았습니다.</b> 관심 가져 주셔서 고맙습니다.</div>`;
 }
 
-const FORM_EXTS = ['pdf', 'doc', 'docx', 'hwpx'];
-const FORM_MAX_BYTES = 10 * 1024 * 1024;
-
-/** 신청서 파일: 팀장이 양식을 적고 서명한 파일을 올린다(서버가 형식·내용을 다시 확인). */
+/** 신청서 파일: 4명이 모두 합류해 동의한 뒤 팀장이 양식을 적고 서명한 파일을 올린다(서버가 형식·내용을 다시 확인). */
 function FormPanel({ view, onView }) {
-  const { notify } = useApp();
+  const { config, notify } = useApp();
+  const { types, maxBytes } = config.form;
   const t = view.team;
   const leader = view.me.role === 'leader';
   const [busy, run] = useBusy();
@@ -86,12 +88,12 @@ function FormPanel({ view, onView }) {
     e.target.value = '';
     if (!file) return;
     const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
-    if (!FORM_EXTS.includes(ext)) {
+    if (!types.includes(ext)) {
       setError('PDF, 워드(.doc·.docx), 한글(.hwpx) 파일만 올릴 수 있습니다. 한글(.hwp) 파일은 .hwpx 나 PDF 로 저장해 주세요.');
       return;
     }
-    if (file.size > FORM_MAX_BYTES) {
-      setError('파일이 너무 큽니다. 10MB 이하로 올려 주세요.');
+    if (file.size > maxBytes) {
+      setError(`파일이 너무 큽니다. ${Math.round(maxBytes / 1048576)}MB 이하로 올려 주세요.`);
       return;
     }
     setError('');
@@ -110,9 +112,10 @@ function FormPanel({ view, onView }) {
     <div class="panel-h"><h2>신청서 파일</h2><span class="small muted">PDF · 워드 · 한글(.hwpx), 10MB 이하</span></div>
     ${t.form
       ? html`<dl class="kv"><dt>올린 파일</dt><dd>${t.form.name}</dd><dt>올린 시각</dt><dd>${fmtWhen(t.form.at)} · ${t.form.size}</dd></dl>`
-      : html`<div class="notice warn">${leader
-        ? '아직 올리지 않았습니다. 양식을 내려받아 팀 정보를 적고 팀장이 서명(또는 날인)한 뒤 올려 주세요.'
-        : '팀장이 아직 신청서 파일을 올리지 않았습니다.'}</div>`}
+      : html`<div class="notice warn">${view.formBlocked
+        || (leader
+          ? '양식을 내려받아 팀원 4명의 정보를 적고 팀장이 서명(또는 날인)한 뒤 올려 주세요.'
+          : '팀장이 아직 신청서 파일을 올리지 않았습니다.')}</div>`}
     <${FormTemplates} />
     ${view.can.form ? html`<div class="btn-row">
       <label class=${`btn filepick${t.form ? '' : ' btn-primary'}`} aria-disabled=${busy ? 'true' : 'false'}>
@@ -228,7 +231,8 @@ function RepoPanel({ view, onView, config }) {
 }
 
 function MembersPanel({ view, onView }) {
-  const { notify } = useApp();
+  const { config, notify } = useApp();
+  const teamSize = config.teamSize;
   const t = view.team;
   const leader = view.me.role === 'leader';
   const [confirm, setConfirm] = useState(null);
@@ -243,7 +247,7 @@ function MembersPanel({ view, onView }) {
       notify(err.message, 'err');
     }
   });
-  const rows = t.members.concat(Array.from({ length: Math.max(0, 4 - t.count) }, () => null));
+  const rows = t.members.concat(Array.from({ length: Math.max(0, teamSize - t.count) }, () => null));
   return html`<section class="panel">
     <div class="panel-h"><h2>팀원</h2><${Slots} count=${t.count} /></div>
     <div class="scroll-x"><table class="members">
@@ -289,7 +293,7 @@ function TeamPanel({ view, onView, config }) {
   };
   const save = (e) => {
     e.preventDefault();
-    const errs = checkTeam(form);
+    const errs = checkTeam(form, config.teamFields);
     setErrors(errs);
     if (Object.keys(errs).length) { focusFirstError(); return; }
     run(async () => {
@@ -450,13 +454,29 @@ export function MeView() {
       setView(res.view);
       setState('ready');
     }).catch((err) => {
-      if (err.code === 'AUTH') session.clear('member');
       setMessage(err.message);
-      setState('login');
+      if (err.code === 'AUTH') {
+        session.clear('member');
+        setState('login');
+      } else {
+        setState('failed');
+      }
     });
   }, [state]);
 
+  // 카카오톡 등으로 초대 링크를 보내고 돌아오면(탭이 다시 보이면) 팀원 합류 상황을 새로 불러온다.
+  useEffect(() => {
+    if (state !== 'ready') return undefined;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      api('me', { token: session.get('member') }).then((res) => setView(res.view)).catch(() => { /* 다음에 다시 */ });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [state]);
+
   if (state === 'loading') return html`<div class="wrap page"><p class="muted">불러오는 중…</p></div>`;
+  if (state === 'failed') return html`<${LoadFailed} message=${message} retry=${() => setState('loading')} />`;
   if (state === 'login' || !view) {
     return html`<${Login} message=${message} onDone=${(v) => { setView(v); setMessage(''); setState('ready'); }} />`;
   }
@@ -464,6 +484,16 @@ export function MeView() {
   const t = view.team;
   const leader = view.me.role === 'leader';
   const onLeft = (text) => { notify(text); setView(null); setMessage(''); setState('login'); };
+  const rotateInvite = async () => {
+    if (!window.confirm('새 초대 링크를 만들까요? 지금 링크로는 더 이상 합류할 수 없습니다.')) return;
+    try {
+      const res = await api('teamInvite', { token: session.get('member') });
+      setView(res.view);
+      notify('새 초대 링크를 만들었습니다. 합류할 팀원에게 다시 보내 주세요.');
+    } catch (err) {
+      notify(err.message, 'err');
+    }
+  };
 
   return html`<div class="wrap page">
     <div class="status-head">
@@ -481,7 +511,7 @@ export function MeView() {
     <div class="two-col">
       <div class="stack">
         <${StatusNotice} view=${view} config=${config} />
-        ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} />` : ''}
+        ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} onRotate=${rotateInvite} />` : ''}
         <${FormPanel} view=${view} onView=${setView} />
         <${SubmitPanel} view=${view} onView=${setView} />
         <${RepoPanel} view=${view} onView=${setView} config=${config} />
