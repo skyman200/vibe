@@ -52,7 +52,7 @@ button { font: inherit; }
 
 .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 20px; }
 .wrap-wide { max-width: 1320px; margin: 0 auto; padding: 0 20px; }
-.page { padding: 36px 0 80px; }
+.page { padding-top: 36px; padding-bottom: 80px; }   /* 좌우 여백은 .wrap 이 준다(머리와 줄 맞춤) */
 .page-h { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 20px; margin-bottom: 28px; border-bottom: 2px solid var(--ink); }
 .page-h h1 { font-size: 30px; margin: 0; letter-spacing: -0.03em; }
 .page-h p { margin: 6px 0 0; color: var(--ink-2); max-width: 62ch; }
@@ -60,6 +60,7 @@ button { font: inherit; }
 /* ── 머리·꼬리 ── */
 .top { position: sticky; top: 0; z-index: 30; background: var(--paper); border-bottom: 1px solid var(--line); }
 .top-in { max-width: var(--wrap); margin: 0 auto; padding: 0 20px; height: 60px; display: flex; align-items: center; gap: 20px; }
+.top-in.wide { max-width: 1320px; }   /* 관리자 화면은 넓은 폭(wrap-wide)이라 머리도 맞춘다 */
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
 .brand:hover { text-decoration: none; }
 .brand-mark { font: 700 11.5px/1 var(--mono); letter-spacing: .06em; color: #fff; background: var(--red); padding: 6px 6px 5px; border-radius: 3px; }
@@ -69,6 +70,11 @@ button { font: inherit; }
 .nav a { padding: 8px 12px; color: var(--ink-2); text-decoration: none; font-weight: 500; border-radius: 6px; }
 .nav a:hover { color: var(--ink); background: var(--sunk); }
 .nav a[aria-current='page'] { color: var(--ink); font-weight: 700; background: transparent; box-shadow: inset 0 -2px 0 var(--red); border-radius: 0; }
+.modes { display: flex; gap: 2px; margin-left: auto; padding: 2px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--card); flex: none; }
+.nav + .modes { margin-left: 12px; }
+.modes a { padding: 5px 10px; border-radius: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.modes a:hover { color: var(--ink); background: var(--sunk); }
+.modes a[aria-current='true'] { background: var(--ink); color: #fff; }
 .foot { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
 .foot-in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; }
 .foot a { color: var(--ink-2); }
@@ -358,7 +364,10 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
 @media (max-width: 720px) {
   .top-in { height: auto; flex-wrap: wrap; gap: 0; padding: 10px 16px 0; }
   .brand { padding-bottom: 6px; }
-  .nav { width: 100%; margin: 0 -8px; overflow-x: auto; padding-bottom: 2px; }
+  .brand-year { display: none; }
+  .modes, .nav + .modes { order: 1; margin: 0 0 6px auto; }
+  .modes a { padding: 5px 8px; }
+  .nav { order: 2; width: 100%; margin: 0 -8px; overflow-x: auto; padding-bottom: 2px; }
   .nav a { padding: 8px 10px; flex: none; }
   .wrap, .wrap-wide { padding: 0 16px; }
   .page { padding-top: 26px; }
@@ -386,6 +395,7 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
 @media (max-width: 960px) { .aside-first { order: -1; } }
 .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 16px; }
 @media (max-width: 720px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 440px) { .brand-long { display: none; } }
 .deptlist > div { break-inside: avoid; }
 .templates { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .templates .small { margin-right: 4px; }

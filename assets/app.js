@@ -17,17 +17,32 @@ const NAV = [
   ['me', '#/me', '내 신청'],
 ];
 
+/** 화면 모드: 처음 들어오면 신청자 화면, 머리의 전환 단추로 심사위원·관리자 화면(각자 코드로 로그인). */
+const MODES = [
+  ['participant', '#/', '신청자'],
+  ['judge', '#/judge', '심사위원'],
+  ['admin', '#/admin', '관리자'],
+];
+
+function modeOf(routeName) {
+  return routeName === 'judge' || routeName === 'admin' ? routeName : 'participant';
+}
+
 function Header({ route }) {
+  const mode = modeOf(route.name);
   const current = route.name === 'join' ? 'apply' : route.name;
   return html`<header class="top">
-    <div class="top-in">
+    <div class=${mode === 'admin' ? 'top-in wide' : 'top-in'}>
       <a class="brand" href="#/" aria-label="DIT 바이브코딩 해커톤 처음으로">
         <span class="brand-mark">DIT</span>
-        <span class="brand-name">바이브코딩 해커톤</span>
+        <span class="brand-name"><span class="brand-long">바이브코딩 </span>해커톤</span>
         <span class="brand-year">2026</span>
       </a>
-      <nav class="nav" aria-label="주 메뉴">
+      ${mode === 'participant' ? html`<nav class="nav" aria-label="신청자 메뉴">
         ${NAV.map(([key, href, label]) => html`<a href=${href} aria-current=${current === key ? 'page' : undefined}>${label}</a>`)}
+      </nav>` : ''}
+      <nav class="modes" aria-label="화면 모드">
+        ${MODES.map(([key, href, label]) => html`<a href=${href} aria-current=${mode === key ? 'true' : undefined}>${label}</a>`)}
       </nav>
     </div>
   </header>`;
@@ -43,8 +58,6 @@ function Footer({ config }) {
       </div>
       <nav aria-label="보조 메뉴">
         <a href="#/privacy">개인정보 처리 안내</a>
-        <a href="#/judge">심사위원</a>
-        <a href="#/admin">관리자</a>
       </nav>
     </div>
   </footer>`;
