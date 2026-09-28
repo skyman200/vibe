@@ -1,5 +1,6 @@
 // 안내: 공지(notice.hwpx) 내용을 한 장짜리 행사 안내문처럼.
 import { html, useApp, fmtWhen, untilText } from '../lib.js';
+import { FormTemplates } from '../ui.js';
 
 const SCHEDULE = [
   ['1일차 · 10. 29.(목) 교육과 개발', [
@@ -108,9 +109,10 @@ export function HomeView() {
           <p>팀명과 참가 주제, 프로젝트 구상, 본인 정보를 적고 동의하면 팀 초대 링크가 만들어집니다.</p></li>
         <li><span class="n">02</span><h3>팀원 3명이 합류합니다</h3>
           <p>초대 링크를 받은 팀원이 각자 본인 정보를 입력하고 직접 동의합니다. 다른 사람의 정보를 대신 적지 않습니다.</p></li>
-        <li><span class="n">03</span><h3>4명이 되면 팀장이 제출</h3>
-          <p>4인 1조가 아니면 제출되지 않습니다. 접수 후 심사를 거쳐 ${ph.selectTarget}팀을 선발해 안내합니다.</p></li>
+        <li><span class="n">03</span><h3>신청서를 올리고 제출합니다</h3>
+          <p>양식에 적고 팀장이 서명한 신청서 파일(PDF·워드·한글)을 올린 뒤, 4명이 모이면 팀장이 제출합니다. 4인 1조가 아니면 제출되지 않고, 접수 후 심사를 거쳐 ${ph.selectTarget}팀을 선발해 안내합니다.</p></li>
       </ol>
+      <div style="margin-top:18px"><${FormTemplates} /></div>
       <p class="small muted" style="margin-top:18px">팀을 꾸리기 어려운 개인은 AI허브센터(${e.contact.phone})로 연락하면 팀 매칭을 도와드립니다.</p>
     <//>
 

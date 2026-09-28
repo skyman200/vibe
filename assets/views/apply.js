@@ -3,7 +3,7 @@ import {
   html, useState, useEffect, useApp, api, session, go, digits, copyText, inviteLink, josa,
 } from '../lib.js';
 import {
-  Field, DeptSelect, MemberFields, ConsentFields, Slots, Veil, useBusy,
+  Field, DeptSelect, MemberFields, ConsentFields, Slots, Veil, FormTemplates, useBusy,
   emptyMember, checkMember, emptyAgree, checkAgree, serverErrors, focusFirstError,
 } from '../ui.js';
 
@@ -136,7 +136,7 @@ export function ApplyView() {
   if (created) {
     return html`<div class="wrap page">
       <div class="page-h"><div><p class="overline">팀 만들기 완료 · 1/4명</p><h1>${created.team.name}</h1>
-        <p>아직 신청 전입니다. 팀원 3명이 합류해 4명이 되면 팀장이 「내 신청」에서 제출합니다.</p></div></div>
+        <p>아직 신청 전입니다. 팀원 3명이 합류하고 신청서 파일을 올리면 팀장이 「내 신청」에서 제출합니다.</p></div></div>
       <div class="two-col">
         <${InviteBox} team=${created.team} />
         <div class="panel">
@@ -144,9 +144,11 @@ export function ApplyView() {
           <${Slots} count=${created.team.count} />
           <ol class="bullets" style="padding:0">
             <li>팀원 3명이 초대 링크로 합류합니다(각자 본인 정보·동의).</li>
+            <li>신청서 양식에 팀 정보를 적고 팀장이 서명한 파일(PDF·워드·한글)을 <a href="#/me">내 신청</a>에 올립니다.</li>
             <li>4명이 모이면 팀장이 <a href="#/me">내 신청</a>에서 [신청서 제출]을 누릅니다.</li>
             <li>로그인은 학번과 방금 정한 비밀번호로 합니다.</li>
           </ol>
+          <${FormTemplates} />
           <a class="btn btn-primary" href="#/me">내 신청으로 가기</a>
         </div>
       </div>
@@ -192,7 +194,7 @@ export function ApplyView() {
     <div class="page-h">
       <div>
         <h1>팀 만들기</h1>
-        <p>팀장이 먼저 팀을 만들고 팀원 3명에게 초대 링크를 보냅니다. <b>4명이 모두 합류해야</b> 신청서를 낼 수 있습니다.</p>
+        <p>팀장이 먼저 팀을 만들고 팀원 3명에게 초대 링크를 보냅니다. <b>4명이 모두 합류하고 신청서 파일을 올려야</b> 제출할 수 있습니다.</p>
       </div>
       <a class="btn btn-sm" href="#/join">초대 코드로 합류하기</a>
     </div>

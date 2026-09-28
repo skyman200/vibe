@@ -388,3 +388,8 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
 .members th, .members td, .sheet th, .sheet td { white-space: nowrap; }
 .sheet td.long { white-space: pre-wrap; }
 .deptlist > div { break-inside: avoid; }
+.templates { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.templates .small { margin-right: 4px; }
+.filepick { position: relative; overflow: hidden; }
+.filepick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+.filepick:focus-within { outline: 2px solid var(--navy); outline-offset: 2px; }

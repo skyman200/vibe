@@ -1,9 +1,9 @@
 // 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 결과물(GitHub) 제출, 본인 정보 정정·철회.
 import {
-  html, useState, useEffect, useApp, api, session, digits, fmtWhen, STATUS_LABEL,
+  html, useState, useEffect, useApp, api, session, digits, fmtWhen, fileToBase64, STATUS_LABEL,
 } from '../lib.js';
 import {
-  Field, Modal, Slots, Status, Veil, MemberFields, useBusy, checkMember, serverErrors, focusFirstError,
+  Field, Modal, Slots, Status, Veil, MemberFields, FormTemplates, useBusy, checkMember, serverErrors, focusFirstError,
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
 
@@ -58,7 +58,7 @@ function StatusNotice({ view, config }) {
   if (t.status === 'draft') {
     return html`<div class="notice warn">
       <b>아직 신청 전입니다.</b> ${t.count < config.teamSize ? `팀원 ${config.teamSize - t.count}명이 더 합류해야 합니다. ` : ''}
-      ${leader ? '4명이 모이면 아래 [신청서 제출]을 눌러 주세요.' : '4명이 모이면 팀장이 신청서를 제출합니다.'}
+      ${leader ? '4명이 모이고 신청서 파일을 올리면 아래 [신청서 제출]을 눌러 주세요.' : '4명이 모이면 팀장이 신청서 파일을 올리고 제출합니다.'}
     </div>`;
   }
   if (t.status === 'submitted') {
@@ -69,6 +69,60 @@ function StatusNotice({ view, config }) {
   }
   if (t.status === 'waitlist') return html`<div class="notice warn"><b>예비 팀입니다.</b> 선정 팀에 결원이 생기면 차례로 연락드립니다.</div>`;
   return html`<div class="notice"><b>이번에는 선정되지 않았습니다.</b> 관심 가져 주셔서 고맙습니다.</div>`;
+}
+
+const FORM_EXTS = ['pdf', 'doc', 'docx', 'hwpx'];
+const FORM_MAX_BYTES = 10 * 1024 * 1024;
+
+/** 신청서 파일: 팀장이 양식을 적고 서명한 파일을 올린다(서버가 형식·내용을 다시 확인). */
+function FormPanel({ view, onView }) {
+  const { notify } = useApp();
+  const t = view.team;
+  const leader = view.me.role === 'leader';
+  const [busy, run] = useBusy();
+  const [error, setError] = useState('');
+  const pick = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+    if (!FORM_EXTS.includes(ext)) {
+      setError('PDF, 워드(.doc·.docx), 한글(.hwpx) 파일만 올릴 수 있습니다. 한글(.hwp) 파일은 .hwpx 나 PDF 로 저장해 주세요.');
+      return;
+    }
+    if (file.size > FORM_MAX_BYTES) {
+      setError('파일이 너무 큽니다. 10MB 이하로 올려 주세요.');
+      return;
+    }
+    setError('');
+    run(async () => {
+      try {
+        const data = await fileToBase64(file);
+        const res = await api('teamForm', { token: session.get('member'), file: { name: file.name, data } });
+        onView(res.view);
+        notify('신청서 파일을 올렸습니다.');
+      } catch (err) {
+        setError(err.message);
+      }
+    });
+  };
+  return html`<section class="panel">
+    <div class="panel-h"><h2>신청서 파일</h2><span class="small muted">PDF · 워드 · 한글(.hwpx), 10MB 이하</span></div>
+    ${t.form
+      ? html`<dl class="kv"><dt>올린 파일</dt><dd>${t.form.name}</dd><dt>올린 시각</dt><dd>${fmtWhen(t.form.at)} · ${t.form.size}</dd></dl>`
+      : html`<div class="notice warn">${leader
+        ? '아직 올리지 않았습니다. 양식을 내려받아 팀 정보를 적고 팀장이 서명(또는 날인)한 뒤 올려 주세요.'
+        : '팀장이 아직 신청서 파일을 올리지 않았습니다.'}</div>`}
+    <${FormTemplates} />
+    ${view.can.form ? html`<div class="btn-row">
+      <label class=${`btn filepick${t.form ? '' : ' btn-primary'}`} aria-disabled=${busy ? 'true' : 'false'}>
+        ${busy ? '올리는 중…' : t.form ? '다른 파일로 바꾸기' : '파일 골라 올리기'}
+        <input type="file" accept=".pdf,.doc,.docx,.hwpx" disabled=${busy} onChange=${pick} aria-label="신청서 파일 고르기" />
+      </label>
+      <span class="small muted">팀원이 바뀌면 신청서를 다시 올려야 합니다.</span>
+    </div>` : ''}
+    ${error ? html`<div class="err" role="alert">${error}</div>` : ''}
+  </section>`;
 }
 
 function SubmitPanel({ view, onView }) {
@@ -95,7 +149,7 @@ function SubmitPanel({ view, onView }) {
   return html`<section class="panel">
     <div class="panel-h"><h2>신청서 제출</h2><span class="small muted">4인 1조일 때만 제출됩니다</span></div>
     ${view.submitBlockers.length ? html`<ul class="checklist">${view.submitBlockers.map((b) => html`<li><span class="n">✕</span>${b}</li>`)}</ul>`
-      : html`<ul class="checklist"><li><span class="y">✓</span>팀원 4명이 모두 합류하고 각자 동의했습니다.</li></ul>`}
+      : html`<ul class="checklist"><li><span class="y">✓</span>팀원 4명이 모두 합류하고 각자 동의했습니다.</li><li><span class="y">✓</span>신청서 파일을 올렸습니다.</li></ul>`}
     ${error ? html`<div class="err" role="alert">${error}</div>` : ''}
     <div><button class="btn btn-accent btn-lg" disabled=${!view.can.submit || busy} onClick=${submit}>${busy ? '제출하는 중…' : '신청서 제출'}</button></div>
   </section>`;
@@ -428,6 +482,7 @@ export function MeView() {
       <div class="stack">
         <${StatusNotice} view=${view} config=${config} />
         ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} />` : ''}
+        <${FormPanel} view=${view} onView=${setView} />
         <${SubmitPanel} view=${view} onView=${setView} />
         <${RepoPanel} view=${view} onView=${setView} config=${config} />
         <${MembersPanel} view=${view} onView=${setView} />

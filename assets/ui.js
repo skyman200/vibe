@@ -85,6 +85,20 @@ export function Status({ status, label }) {
   return html`<span class=${`st st-${status}`}>${label || STATUS_LABEL[status] || status}</span>`;
 }
 
+/** 신청서 양식 내려받기(공지 별첨과 같은 양식). */
+export const FORM_TEMPLATES = [
+  ['한글(.hwpx)', 'forms/application-form.hwpx', 'DIT바이브코딩해커톤_참가신청서.hwpx'],
+  ['워드(.docx)', 'forms/application-form.docx', 'DIT바이브코딩해커톤_참가신청서.docx'],
+  ['PDF(인쇄용)', 'forms/application-form.pdf', 'DIT바이브코딩해커톤_참가신청서.pdf'],
+];
+
+export function FormTemplates() {
+  return html`<div class="templates">
+    <span class="small muted">신청서 양식</span>
+    ${FORM_TEMPLATES.map(([label, href, name]) => html`<a class="btn btn-sm" href=${href} download=${name}>${label}</a>`)}
+  </div>`;
+}
+
 /** 비동기 버튼: 누르는 동안 중복 제출을 막는다. */
 export function useBusy() {
   const [busy, setBusy] = useState(false);

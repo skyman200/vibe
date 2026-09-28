@@ -230,6 +230,16 @@ export async function copyText(text) {
   }
 }
 
+/** 파일 → base64(데이터 URL 앞부분 제외) */
+export function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new ApiFailure('파일을 읽지 못했습니다. 다시 골라 주세요.', 'FILE'));
+    reader.readAsDataURL(file);
+  });
+}
+
 /** 초대 링크: 현재 사이트 주소 + #/join/팀ID/초대코드 */
 export function inviteLink(teamId, code) {
   return `${location.origin}${location.pathname}#/join/${teamId}/${code}`;

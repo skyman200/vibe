@@ -91,7 +91,7 @@ function AdminCard({ t, onOpen, onDragStart, onDragEnd, dragging }) {
       ${t.members.map((m) => html`<li><span class="role">${m.role === 'leader' ? '팀장' : '팀원'}</span><span class="who">${m.name} · ${m.deptName}</span><span class="num small muted">${m.studentNo}</span></li>`)}
     </ul>
     <div class="card-foot">
-      ${short ? html`<span class="flag">${t.count}/4명 충원 필요</span>` : html`<span class="num">${t.count}/4명</span>`}
+      <span>${short ? html`<span class="flag">${t.count}/4명 충원 필요</span>` : html`<span class="num">${t.count}/4명</span>`}${!t.form && ['draft', 'submitted'].includes(t.status) ? html` · <span class="flag">신청서 없음</span>` : ''}</span>
       <span>${t.repo.url ? 'GitHub 제출' : t.submittedAt ? `접수 ${fmtShort(t.submittedAt)}` : `생성 ${fmtShort(t.createdAt)}`}</span>
     </div>
   </article>`;
@@ -212,6 +212,9 @@ function TeamDrawer({ team, data, onClose, reload }) {
           <dt>프로젝트 개요</dt><dd>${team.summary}</dd>
           <dt>AI 도구</dt><dd>${team.aiTools}</dd>
           <dt>참가 동기</dt><dd>${team.motivation}</dd>
+          <dt>신청서 파일</dt><dd>${team.form
+            ? html`<a href=${team.form.url} target="_blank" rel="noopener">${team.form.name}</a> <span class="small muted">${team.form.size} · ${fmtWhen(team.form.at)} · 드라이브(소유자 계정)에서 열림</span>`
+            : html`<span class="flag">아직 올리지 않음</span>`}</dd>
         </dl>
       </section>
 
@@ -574,7 +577,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
         </div>
       </div>
       <div class="btn-row">
-        <span class="small muted">보기용 구글 스프레드시트 사본(5분마다 자동 갱신, 소유자 계정으로만 열림): <a href=${data.sheetUrl} target="_blank" rel="noopener">열기</a>. 시트를 고쳐도 원본에는 반영되지 않습니다.</span>
+        <span class="small muted">보기용 구글 스프레드시트 사본(5분마다 자동 갱신, 소유자 계정으로만 열림): <a href=${data.sheetUrl} target="_blank" rel="noopener">열기</a>. 시트를 고쳐도 원본에는 반영되지 않습니다. 신청서 파일 폴더(구글 드라이브): <a href=${data.formFolderUrl} target="_blank" rel="noopener">열기</a>.</span>
         <button type="button" class="btn btn-sm" disabled=${busy} onClick=${() => run(async () => {
           try { const res = await api('adminSync', { token: token() }); notify(res.message); } catch (err) { notify(err.message, 'err'); }
         })}>지금 갱신</button>
@@ -583,10 +586,10 @@ function SettingsTab({ data, reload, onCodeChanged }) {
 
     <fieldset class="fs">
       <div class="fs-h"><h2>개인정보 파기</h2><p>보유 기간이 끝나면 실행합니다</p></div>
-      <p class="small" style="margin:0">팀·참가자·점수·심사위원 정보를 모두 지우고 스프레드시트 사본도 비웁니다. 되돌릴 수 없으니 먼저 [엑셀로 저장]으로 보관할 자료를 받아 두세요. 구글 시트는 '버전 기록'에 이전 내용이 남으므로, 보유 기간이 끝나 파기할 때는 사본 파일도 드라이브에서 삭제(휴지통 비우기 포함)하세요. 확인 문구 <b>전체 파기</b>를 입력합니다.</p>
+      <p class="small" style="margin:0">팀·참가자·점수·심사위원 정보를 모두 지우고, 신청서 파일은 드라이브 휴지통으로 보내며, 스프레드시트 사본도 비웁니다. 되돌릴 수 없으니 먼저 [엑셀로 저장]으로 보관할 자료를 받아 두세요. 파기를 끝내려면 드라이브 휴지통을 비우고, 구글 시트는 '버전 기록'에 이전 내용이 남으므로 사본 파일도 삭제하세요. 확인 문구 <b>전체 파기</b>를 입력합니다.</p>
       <div class="linkrow" style="max-width:420px"><input class="input" value=${purge} onInput=${(e) => setPurge(e.target.value)} aria-label="확인 문구" />
         <button type="button" class="btn btn-danger" disabled=${busy || purge !== '전체 파기'} onClick=${() => run(async () => {
-          try { const res = await api('adminPurge', { token: token(), confirm: purge }); notify(`파기 완료: 팀 ${res.purged.teams}개, 참가자 ${res.purged.members}명 · 스프레드시트 사본도 비웠습니다.`); setPurge(''); reload(); } catch (err) { notify(err.message, 'err'); }
+          try { const res = await api('adminPurge', { token: token(), confirm: purge }); notify(`파기 완료: 팀 ${res.purged.teams}개, 참가자 ${res.purged.members}명, 신청서 파일 ${res.files.trashed}개${res.files.failed ? `(삭제 실패 ${res.files.failed}개 — 드라이브에서 직접 지워 주세요)` : ''} · 스프레드시트 사본도 비웠습니다.`, res.files.failed ? 'err' : 'ok'); setPurge(''); reload(); } catch (err) { notify(err.message, 'err'); }
         })}>전체 파기</button></div>
     </fieldset>
   </form>`;
