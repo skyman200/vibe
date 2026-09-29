@@ -163,7 +163,7 @@ function Hero({ config }) {
         <dt>일시</dt><dd>${e ? e.period : html`<${Skel} w="14em" />`}</dd>
         <dt>장소</dt><dd>${e ? e.venue : html`<${Skel} w="12em" />`}</dd>
         <dt>대상</dt><dd>본교 재학생<small>팀 단위 참가(학과 추천) · 4인 1조</small></dd>
-        <dt>선발</dt><dd>${ph ? `최종 ${ph.selectTarget}팀` : html`<${Skel} w="5em" />`}<small>${ph ? `신청은 ${ph.applicantCap}명(${ph.teamCap}팀)까지 받아 심사 후 선발합니다` : html`<${Skel} w="16em" />`}</small></dd>
+        <dt>본선</dt><dd>${ph ? `${ph.selectTarget}팀 · 진리관 컨벤션홀` : html`<${Skel} w="9em" />`}<small>${ph ? `신청은 ${ph.applicantCap}명(${ph.teamCap}팀)까지 받습니다. ${ph.selectTarget}팀을 넘으면 의무 교육 후 평가로 본선 팀을 선발합니다` : html`<${Skel} w="16em" />`}</small></dd>
         <dt>접수</dt><dd class="num">${e ? `${fmtWhen(e.applyStart)} ~ ${fmtWhen(e.applyEnd)}` : html`<${Skel} w="13em" />`}</dd>
         <dt>제공</dt><dd>팀당 Claude Code 또는 Codex</dd>
       </dl>
@@ -187,7 +187,7 @@ export function HomeView() {
       e.period,
       '진리관 컨벤션홀',
       '재학생 4인 1조',
-      `최종 ${ph.selectTarget}팀 선발`,
+      `본선 진출 ${ph.selectTarget}팀`,
       '팀당 Claude Code · Codex 제공',
       `신청 ${fmtWhen(e.applyEnd)} 마감`,
     ]} />
@@ -206,6 +206,7 @@ export function HomeView() {
         <div>
           <strong>${config.training.notice}</strong>
           <p>${config.training.detail} 신청할 때 팀원 모두가 각자 참석을 확인합니다.</p>
+          <p><b>${config.selection.short}</b></p>
         </div>
       </div>
     </div>
@@ -217,8 +218,15 @@ export function HomeView() {
         <li><span class="n">02</span><h3>팀원 3명이 합류합니다</h3>
           <p>초대 링크를 받은 팀원이 각자 본인 정보를 입력하고 직접 동의합니다. 다른 사람의 정보를 대신 적지 않습니다.</p></li>
         <li><span class="n">03</span><h3>4명이 모이면 팀장이 제출</h3>
-          <p>팀원 4명이 모두 합류해 각자 동의하면 팀장이 [신청서 제출]을 누릅니다. 참가 신청서(한글·PDF)는 입력한 내용으로 자동으로 만들어지므로 따로 쓰거나 올릴 파일이 없습니다. 4인 1조가 아니면 제출되지 않습니다. 접수 후 심사를 거쳐 ${ph.selectTarget}팀을 선발해 안내합니다.</p></li>
+          <p>팀원 4명이 모두 합류해 각자 동의하면 팀장이 [신청서 제출]을 누릅니다. 참가 신청서(한글·PDF)는 입력한 내용으로 자동으로 만들어지므로 따로 쓰거나 올릴 파일이 없습니다. 4인 1조가 아니면 제출되지 않습니다.</p></li>
       </ol>
+      <ol class="flow" aria-label="본선까지 진행 순서">
+        <li><b>신청 접수</b><span>${fmtWhen(e.applyStart)} ~ ${fmtWhen(e.applyEnd)}</span></li>
+        <li><b>의무 교육 1회</b><span>신청 팀원 전원 참석</span></li>
+        <li><b>평가·본선 진출 팀 발표</b><span>신청이 ${ph.selectTarget}팀을 넘으면 평가로 컷오프</span></li>
+        <li class="finals"><b>본선 ${ph.selectTarget}팀</b><span>${e.period.replace(/, 2일간$/, '')} · ${e.venue}</span></li>
+      </ol>
+      <p class="small muted" style="margin-top:12px">${config.selection.short} 본선 진출 팀은 「내 신청」과 연락처로 안내하고, 참가현황에도 발표합니다. 결원이 생기면 예비 팀 순서대로 안내합니다.</p>
       <p class="small muted" style="margin-top:18px">신청은 이 사이트에서 온라인으로만 받습니다. 신청 뒤에도 대회가 끝날 때까지 「내 신청」에서 팀 정보를 고치고 팀원을 바꿀 수 있습니다.</p>
       <p class="small muted" style="margin-top:18px">팀을 꾸리기 어려운 개인은 AI허브센터(${e.contact.phone})로 연락하면 팀 매칭을 도와드립니다.</p>
     <//>

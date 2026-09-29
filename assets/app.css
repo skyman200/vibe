@@ -174,6 +174,7 @@ button { font: inherit; }
 .mustread .label-red { flex: none; font-size: 12px; font-weight: 800; color: var(--red); border: 1.5px solid var(--red); border-radius: 4px; padding: 4px 7px 3px; margin-top: 2px; letter-spacing: .02em; }
 .mustread strong { display: block; font-size: 17px; letter-spacing: -0.02em; }
 .mustread p { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; }
+.mustread p b { color: var(--ink); }
 .notice { border-radius: 8px; padding: 12px 14px; font-size: 14px; background: var(--sunk); color: var(--ink-2); }
 .notice.warn { background: var(--amber-bg); color: #5f3a00; }
 .notice.ok { background: var(--green-bg); color: #164f35; }
@@ -252,6 +253,14 @@ button { font: inherit; }
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 0; padding: 0; }
 .steps li { list-style: none; border-top: 2px solid var(--ink); padding-top: 12px; }
 .steps .n { font: 700 12.5px/1 var(--mono); color: var(--red); }
+/* 본선까지 진행 순서: 네 단계를 가로로(휴대폰은 세로로), 마지막 본선 칸만 빨강 */
+.flow { list-style: none; margin: 26px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); counter-reset: flow; }
+.flow li { counter-increment: flow; position: relative; padding: 12px 14px 12px 0; border-top: 1px solid var(--line-2); display: grid; gap: 2px; align-content: start; }
+.flow li::before { content: counter(flow, decimal-leading-zero); font: 700 12.5px/1 var(--mono); color: var(--muted); margin-bottom: 6px; }
+.flow b { font-size: 16px; }
+.flow span { font-size: 14px; color: var(--ink-2); }
+.flow li.finals { background: var(--red); color: #fff; padding-left: 14px; border-top-color: var(--red); border-radius: 0 0 8px 8px; }
+.flow li.finals::before, .flow li.finals span { color: #fff; }
 .steps h3 { font-size: 16px; margin: 8px 0 6px; }
 .steps p { font-size: 14px; color: var(--ink-2); margin: 0; }
 .table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
@@ -406,6 +415,8 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
   .grid-2, .grid-3, .two { grid-template-columns: 1fr; }
   .span-2 { grid-column: auto; }
   .steps { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: 1fr; }
+  .flow li.finals { border-radius: 8px; margin-top: 6px; }
   .ticker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ticker > div:nth-child(n+3) { border-top: 1px solid var(--line); }
   .board { grid-auto-columns: 84vw; }

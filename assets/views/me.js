@@ -66,13 +66,13 @@ function StatusNotice({ view, config }) {
     ? html` <b>팀원이 빠져 지금 ${t.count}명입니다.</b> ${leader ? '아래 초대 링크로 새 팀원을 받아 주세요. 신청서는 새 명단으로 자동으로 다시 만들어집니다.' : '팀장이 새 팀원을 받습니다.'}`
     : '';
   if (t.status === 'submitted') {
-    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>접수 완료</b> (${fmtWhen(t.submittedAt)}). ${t.app ? '참가 신청서(한글·PDF)가 만들어져 운영진에게 전달되었습니다. ' : ''}심사를 거쳐 선발 결과를 이 화면과 연락처로 안내합니다.${refill}</div>`;
+    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>접수 완료</b> (${fmtWhen(t.submittedAt)}). ${t.app ? '참가 신청서(한글·PDF)가 만들어져 운영진에게 전달되었습니다. ' : ''}${config.selection.short} 본선 진출 팀은 이 화면과 연락처로 안내합니다.${refill}</div>`;
   }
   if (t.status === 'selected') {
-    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>본선 참가팀으로 선정되었습니다.</b> ${config.training.notice}${refill}</div>`;
+    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>본선 진출 팀입니다.</b> ${config.selection.finals} ${config.training.notice}${refill}</div>`;
   }
-  if (t.status === 'waitlist') return html`<div class="notice warn"><b>예비 팀입니다.</b> 선정 팀에 결원이 생기면 차례로 연락드립니다.</div>`;
-  return html`<div class="notice"><b>이번에는 선정되지 않았습니다.</b> 관심 가져 주셔서 고맙습니다.</div>`;
+  if (t.status === 'waitlist') return html`<div class="notice warn"><b>예비 팀입니다.</b> 본선 진출 팀에 결원이 생기면 차례로 연락드립니다.</div>`;
+  return html`<div class="notice"><b>이번 본선에는 진출하지 못했습니다.</b> 관심 가져 주셔서 고맙습니다.</div>`;
 }
 
 function SubmitPanel({ view, onView }) {

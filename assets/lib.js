@@ -277,7 +277,7 @@ export function useApp() {
 }
 
 export const STATUS_LABEL = {
-  draft: '팀 구성 중', submitted: '접수 완료', selected: '선정', waitlist: '예비', rejected: '미선정',
+  draft: '팀 구성 중', submitted: '접수 완료', selected: '본선 진출', waitlist: '예비', rejected: '미선발',
 };
 
 export function groupBySeries(departments) {

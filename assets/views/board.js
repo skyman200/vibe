@@ -6,8 +6,8 @@ const SERIES = ['공학계열', '보건계열', '자연과학계열', '인문사
 const COL_NOTE = {
   forming: '아직 신청 전입니다. 4명이 모이면 팀장이 제출합니다.',
   applied: '4인 1조로 신청서를 낸 팀입니다.',
-  selected: '본선에 참가할 팀입니다.',
-  waitlist: '선정 팀에 결원이 생기면 차례로 안내합니다.',
+  selected: '진리관 컨벤션홀 본선에 참가할 팀입니다.',
+  waitlist: '본선 진출 팀에 결원이 생기면 차례로 안내합니다.',
   building: '결과물을 아직 내지 않은 팀입니다.',
   submitted: 'GitHub 저장소를 제출한 팀입니다.',
 };
@@ -98,7 +98,7 @@ export function BoardView() {
         <p class="num">
           ${contest
             ? html`본선 ${ph.selectedTeams}팀 · 결과물 제출 ${data.teams.filter((t) => t.column === 'submitted').length}팀`
-            : html`접수 완료 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명) · 팀 구성 중 ${ph.formingTeams}팀 · 최종 ${ph.selectTarget}팀 선발`}
+            : html`접수 완료 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명) · 팀 구성 중 ${ph.formingTeams}팀 · 본선 ${ph.selectTarget}팀`}
         </p>
       </div>
       <div class="btn-row">

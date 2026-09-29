@@ -160,7 +160,7 @@ export function JudgeView() {
         <button class="btn btn-sm btn-ghost" onClick=${() => { session.clear('judge'); setData(null); setState('login'); }}>로그아웃</button>
       </div>
     </div>
-    ${!data.teams.length ? html`<div class="notice">아직 선정된 팀이 없습니다.</div>` : html`<div class="jgrid">
+    ${!data.teams.length ? html`<div class="notice">아직 본선 진출 팀이 없습니다.</div>` : html`<div class="jgrid">
       <ol class="jlist">
         ${data.teams.map((t, i) => html`<li><button aria-current=${t.id === sel ? 'true' : 'false'} onClick=${() => setSel(t.id)}>
           <span class="ord">${t.presentOrder || i + 1}</span>

@@ -194,7 +194,7 @@ export function ConsentFields({ agree, setAgree, errors, config }) {
   return html`<div class="consents">
     <${Consent} id="agree-training" required title="의무 교육 참석 확약" checked=${agree.training} onChange=${set('training')} error=${errors['agree.training']}>
       <div class="pledge">${config.training.notice}</div>
-      <div class="hint">${config.training.detail}</div>
+      <div class="hint">${config.training.detail} ${config.selection.short}</div>
     <//>
     <${Consent} id="agree-privacy" required title="개인정보 수집·이용 동의" checked=${agree.privacy} onChange=${set('privacy')} error=${errors['agree.privacy']}
       rows=${[['수집·이용 목적', p.collect.purpose], ['수집 항목', p.collect.items], ['보유·이용 기간', p.collect.retention, true], ['동의 거부 권리', p.collect.refuse]]} />

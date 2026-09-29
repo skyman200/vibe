@@ -10,9 +10,9 @@ import { TeamFields, checkTeam } from './apply.js';
 const COLUMNS = [
   ['draft', '팀 구성 중'],
   ['submitted', '접수 완료'],
-  ['selected', '선정'],
+  ['selected', '본선 진출'],
   ['waitlist', '예비'],
-  ['rejected', '미선정'],
+  ['rejected', '미선발'],
 ];
 const MOVABLE = ['submitted', 'selected', 'waitlist', 'rejected'];
 
@@ -128,7 +128,7 @@ function KanbanTab({ data, reload, openTeam }) {
       </div>
       <input class="input" type="search" placeholder="팀·이름·학번 검색" value=${q} onInput=${(e) => setQ(e.target.value)} aria-label="검색" />
     </div>
-    <p class="small muted" style="margin:-4px 0 12px">카드를 끌어 다른 칸에 놓으면 상태가 바뀝니다. 휴대기기에서는 카드를 눌러 상태를 고르세요. 선정 결과는 [설정 → 선정 결과 공개]를 켜야 참가자에게 보입니다.</p>
+    <p class="small muted" style="margin:-4px 0 12px">카드를 끌어 다른 칸에 놓으면 상태가 바뀝니다. 휴대기기에서는 카드를 눌러 상태를 고르세요. 신청이 본선 팀 수(${data.phase.selectTarget}팀)를 넘으면 의무 교육 후 평가 결과로 '본선 진출'·'예비'·'미선발' 칸에 나눕니다. 본선 진출은 ${data.phase.selectTarget}팀까지이고, 참가자에게는 [설정 → 본선 진출 발표]를 켜야 보입니다.</p>
     <div class="board">
       ${COLUMNS.map(([key, label]) => {
         const cards = data.teams.filter((t) => t.status === key && visible(t));
@@ -738,7 +738,7 @@ function JudgingTab({ data, reload, openTeam }) {
 const SETTING_GROUPS = [
   ['행사', [['eventName', '행사명', 'text'], ['eventPeriod', '행사 일시(표시용)', 'text'], ['venue', '장소', 'text']]],
   ['기간(한국 시각)', [['applyStart', '접수 시작', 'datetime'], ['applyEnd', '접수 마감', 'datetime'], ['submitOpen', '결과물 제출 시작', 'datetime'], ['submitDeadline', '결과물 제출 마감', 'datetime']]],
-  ['인원', [['applicantCap', '접수 정원(명) — 4의 배수 권장', 'number'], ['selectTarget', '선발 팀 수', 'number']]],
+  ['인원', [['applicantCap', '접수 정원(명) — 4의 배수 권장', 'number'], ['selectTarget', '본선 진출 팀 수', 'number']]],
   ['시상 팀 수', [['awardGold', '금상', 'number'], ['awardSilver', '은상', 'number'], ['awardBronze', '동상', 'number']]],
   ['문의처', [['contactName', '문의처', 'text'], ['contactPhone', '전화', 'text'], ['contactEmail', '이메일', 'text']]],
 ];
@@ -825,10 +825,10 @@ function SettingsTab({ data, reload, onCodeChanged }) {
 
     <fieldset class="fs">
       <div class="fs-h"><h2>공개와 게시판</h2></div>
-      ${yn('selectionPublished', '선정 결과 공개', '켜면 참가자 화면과 참가현황에 선정·예비가 보입니다. 미선정 팀은 게시판에 나오지 않습니다.')}
+      ${yn('selectionPublished', '본선 진출 발표', '켜면 참가자 화면과 참가현황에 본선 진출·예비가 보입니다. 미선발 팀은 게시판에 나오지 않습니다.')}
       ${yn('resultsPublished', '시상 결과 공개', '켜면 참가현황 맨 위에 수상 팀이 나옵니다.')}
       <label class="check"><input type="checkbox" checked=${form.boardMode === 'contest'} onChange=${(e) => set('boardMode', e.target.checked ? 'contest' : 'recruit')} />
-        <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 선정 결과 공개 뒤에만).</div>${errors.boardMode ? html`<div class="err" role="alert">${errors.boardMode}</div>` : ''}</span></label>
+        <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 본선 진출 발표 뒤에만).</div>${errors.boardMode ? html`<div class="err" role="alert">${errors.boardMode}</div>` : ''}</span></label>
     </fieldset>
 
     <fieldset class="fs">
@@ -949,7 +949,7 @@ export function AdminView() {
     <div class="page-h">
       <div>
         <h1>관리자</h1>
-        <p class="num">접수 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명) · 선정 <b>${ph.selectedTeams}/${ph.selectTarget}팀</b> · 팀 구성 중 ${ph.formingTeams}팀 · 접수 ${ph.apply === 'open' ? '진행 중' : ph.apply === 'full' ? '정원 마감' : ph.apply === 'before' ? '시작 전' : '마감'}</p>
+        <p class="num">접수 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명) · 본선 진출 <b>${ph.selectedTeams}/${ph.selectTarget}팀</b> · 팀 구성 중 ${ph.formingTeams}팀 · 접수 ${ph.apply === 'open' ? '진행 중' : ph.apply === 'full' ? '정원 마감' : ph.apply === 'before' ? '시작 전' : '마감'}</p>
       </div>
       <div class="btn-row">
         <button class="btn" onClick=${() => setPaper(true)}>서면 신청 입력</button>
