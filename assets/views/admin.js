@@ -1,8 +1,11 @@
 // 관리자: 개인정보 원문을 보는 유일한 화면. 칸반(끌어서 상태 변경)·참가자·심사·설정·엑셀.
 import {
-  html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, STATUS_LABEL, josaRo,
+  html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, fileToBase64, STATUS_LABEL, josaRo,
 } from '../lib.js';
-import { Field, LoadFailed, Modal, Slots, Status, useBusy } from '../ui.js';
+import {
+  Field, DeptSelect, FormTemplates, LoadFailed, Modal, Slots, Status, useBusy, serverErrors, focusFirstError,
+} from '../ui.js';
+import { TeamFields, checkTeam } from './apply.js';
 
 const COLUMNS = [
   ['draft', '팀 구성 중'],
@@ -91,7 +94,7 @@ function AdminCard({ t, onOpen, onDragStart, onDragEnd, dragging }) {
       ${t.members.map((m) => html`<li><span class="role">${m.role === 'leader' ? '팀장' : '팀원'}</span><span class="who">${m.name} · ${m.deptName}</span><span class="num small muted">${m.studentNo}</span></li>`)}
     </ul>
     <div class="card-foot">
-      <span>${short ? html`<span class="flag">${t.count}/4명 충원 필요</span>` : html`<span class="num">${t.count}/4명</span>`}${!t.form && t.count >= 4 && t.status !== 'rejected' ? html` · <span class="flag">신청서 없음</span>` : ''}</span>
+      <span>${short ? html`<span class="flag">${t.count}/4명 충원 필요</span>` : html`<span class="num">${t.count}/4명</span>`}${t.app && (t.app.error || !t.app.pdf) ? html` · <span class="flag">신청서 확인</span>` : ''}${t.source === 'offline' ? ' · 서면' : ''}</span>
       <span>${t.repo.url ? 'GitHub 제출' : t.submittedAt ? `접수 ${fmtShort(t.submittedAt)}` : `생성 ${fmtShort(t.createdAt)}`}</span>
     </div>
   </article>`;
@@ -146,6 +149,229 @@ function KanbanTab({ data, reload, openTeam }) {
   </div>`;
 }
 
+/* ───────────── 서면 신청 입력·팀원 정정 ───────────── */
+
+const emptyPaper = () => ({ deptCode: '', studentNo: '', name: '', phone: '', email: '', shirt: '', agreeMedia: false });
+
+/** 브라우저에서 파일로 저장(서버가 준 base64). */
+function saveBase64({ name, mime, data }) {
+  const bin = atob(data);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: mime || 'application/octet-stream' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/** 관리자가 입력하는 참가자 칸(서면 신청·팀원 추가·정정). prefix: 서버 오류 칸 이름 앞부분(members.0. / member.) */
+function PaperMemberFields({ m, set, errors, prefix, departments, idp }) {
+  const { config } = useApp();
+  const err = (k) => errors[prefix + k];
+  return html`<div class="grid-3">
+    <${Field} label="학과" id=${`${idp}-dept`} required error=${err('deptCode')}>
+      <${DeptSelect} id=${`${idp}-dept`} value=${m.deptCode} departments=${departments} onChange=${(v) => set('deptCode', v)} />
+    <//>
+    <${Field} label="학번" id=${`${idp}-no`} required error=${err('studentNo')}>
+      <input id=${`${idp}-no`} class="input num" inputmode="numeric" maxlength="9" value=${m.studentNo} onInput=${(e) => set('studentNo', e.target.value.replace(/[^0-9]/g, ''))} />
+    <//>
+    <${Field} label="성명" id=${`${idp}-name`} required error=${err('name')}>
+      <input id=${`${idp}-name`} class="input" maxlength="30" value=${m.name} onInput=${(e) => set('name', e.target.value)} />
+    <//>
+    <${Field} label="연락처" id=${`${idp}-phone`} required error=${err('phone')}>
+      <input id=${`${idp}-phone`} class="input num" inputmode="tel" maxlength="13" value=${m.phone} onInput=${(e) => set('phone', e.target.value)} />
+    <//>
+    <${Field} label="이메일" id=${`${idp}-email`} optional error=${err('email')}>
+      <input id=${`${idp}-email`} class="input" inputmode="email" maxlength="100" value=${m.email} onInput=${(e) => set('email', e.target.value)} />
+    <//>
+    <${Field} label="티셔츠 사이즈" id=${`${idp}-shirt`} optional error=${err('shirt')}>
+      <select id=${`${idp}-shirt`} class="select" value=${m.shirt} onChange=${(e) => set('shirt', e.target.value)}>
+        <option value="">모름</option>${config.shirtSizes.map((s) => html`<option value=${s}>${s}</option>`)}
+      </select>
+    <//>
+  </div>`;
+}
+
+/** 서면 원본 파일 고르기(형식·크기는 서버가 다시 확인한다). */
+function FilePick({ label, file, onPick, error }) {
+  const { config } = useApp();
+  const [local, setLocal] = useState('');
+  const pick = (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const ext = f.name.includes('.') ? f.name.split('.').pop().toLowerCase() : '';
+    if (!config.form.types.includes(ext)) { setLocal('PDF, 워드(.doc·.docx), 한글(.hwpx) 파일만 첨부할 수 있습니다. 한글(.hwp)은 .hwpx 나 PDF 로 저장해 주세요.'); return; }
+    if (f.size > config.form.maxBytes) { setLocal(`${Math.round(config.form.maxBytes / 1048576)}MB 이하 파일만 첨부할 수 있습니다.`); return; }
+    setLocal('');
+    onPick(f);
+  };
+  return html`<div class="btn-row">
+    <label class="btn btn-sm filepick">${label}<input type="file" accept=".pdf,.doc,.docx,.hwpx" onChange=${pick} aria-label=${label} /></label>
+    ${file ? html`<span class="small">${file.name}</span>` : ''}
+    ${local || error ? html`<div class="err" role="alert" style="width:100%">${local || error}</div>` : ''}
+  </div>`;
+}
+
+/** 서면(오프라인)으로 받은 신청 입력 → 곧바로 접수 완료. */
+function PaperApplication({ data, onClose, onDone }) {
+  const { config, notify } = useApp();
+  const [team, setTeam] = useState({ name: '', repDept: '', topic: '', projectName: '', summary: '', aiTools: '', motivation: '' });
+  const [members, setMembers] = useState([emptyPaper(), emptyPaper(), emptyPaper(), emptyPaper()]);
+  const [consent, setConsent] = useState(false);
+  const [file, setFile] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [busy, run] = useBusy();
+  const setT = (k, v) => setTeam((t) => ({ ...t, [k]: v }));
+  const setM = (i) => (k, v) => setMembers((list) => list.map((m, j) => (j === i ? { ...m, [k]: v } : m)));
+  const save = (e) => {
+    e.preventDefault();
+    const errs = checkTeam(team, config.teamFields);
+    if (!consent) errs.consent = '서면 신청서에서 팀원 4명의 필수 동의를 확인하고 체크해 주세요.';
+    setErrors(errs);
+    if (Object.keys(errs).length) { focusFirstError(); return; }
+    run(async () => {
+      try {
+        const payload = { token: token(), team, members, consent };
+        if (file) payload.file = { name: file.name, data: await fileToBase64(file) };
+        const res = await api('adminTeamAdd', payload);
+        notify('서면 신청을 접수했습니다. 참가 신청서(한글·PDF)를 만들었습니다.');
+        onDone(res.teamId);
+      } catch (err) {
+        setErrors(serverErrors(err));
+        focusFirstError();
+      }
+    });
+  };
+  return html`<${Modal} title="서면 신청 입력" onClose=${onClose} wide>
+    <form class="form" onSubmit=${save} novalidate>
+      <div class="stack">
+        <p class="small muted" style="margin:0">종이로 받은 신청서를 입력하면 곧바로 '접수 완료'가 됩니다(접수 기간·정원과 관계없이). 입력한 내용으로 참가 신청서(한글·PDF)를 만들고, 서명한 원본은 아래에서 함께 첨부할 수 있습니다. 입력한 참가자는 비밀번호가 없어 로그인할 수 없습니다 — 필요하면 팀 상세에서 [비밀번호 재설정]으로 만들어 주세요.</p>
+        <${FormTemplates} />
+      </div>
+      <fieldset class="fs">
+        <div class="fs-h"><h2>팀 정보</h2></div>
+        <${TeamFields} t=${team} set=${setT} errors=${errors} config=${{ ...config, departments: data.departments }} />
+      </fieldset>
+      ${members.map((m, i) => html`<fieldset class="fs">
+        <div class="fs-h"><h2>${i === 0 ? '팀장' : `팀원 ${i}`}</h2></div>
+        <${PaperMemberFields} m=${m} set=${setM(i)} errors=${errors} prefix=${`members.${i}.`} departments=${data.departments} idp=${`paper-${i}`} />
+      </fieldset>`)}
+      <fieldset class="fs">
+        <div class="fs-h"><h2>동의와 원본</h2></div>
+        <label class=${`check consent${errors.consent ? ' bad' : ''}`}><input type="checkbox" checked=${consent} onChange=${(e) => setConsent(e.target.checked)} />
+          <span>서면 신청서에서 팀원 4명 각자의 필수 동의(개인정보 수집·이용, 국외 이전, 의무 교육 참석 확약)를 확인했습니다.</span></label>
+        ${errors.consent ? html`<div class="err" role="alert">${errors.consent}</div>` : ''}
+        <${FilePick} label=${file ? '다른 파일로 바꾸기' : '서명한 원본 첨부(선택)'} file=${file} onPick=${setFile} error=${errors.form} />
+      </fieldset>
+      <div class="form-foot">
+        <button class="btn btn-accent btn-lg" type="submit" disabled=${busy}>${busy ? '접수하는 중…' : '접수하기'}</button>
+        ${errors._form || errors.members ? html`<span class="form-error" role="alert">${errors._form || errors.members}</span>` : ''}
+      </div>
+    </form>
+  <//>`;
+}
+
+/** 팀 상세의 참가 신청서: 서버가 만든 한글·PDF(내려받기·다시 만들기)와 서면 원본 첨부. */
+function AppFilesPanel({ team, call, busy }) {
+  const { notify } = useApp();
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState('');
+  const download = async (kind) => {
+    try {
+      saveBase64(await api('adminAppFile', { token: token(), teamId: team.id, kind }));
+    } catch (err) {
+      notify(err.message, 'err');
+    }
+  };
+  const attach = async (f) => {
+    setFile(f);
+    setError('');
+    const res = await call('adminForm', { file: { name: f.name, data: await fileToBase64(f) } }, '서면 원본을 첨부했습니다.');
+    if (!res) setError('첨부하지 못했습니다. 파일 형식을 확인해 주세요.');
+    setFile(null);
+  };
+  const app = team.app;
+  return html`<section class="panel">
+    <div class="panel-h"><h2>참가 신청서</h2><span class="small muted">${team.source === 'offline' ? '서면 신청(관리자 입력)' : '온라인 신청'}</span></div>
+    ${!app ? html`<p class="small muted" style="margin:0">팀장이 제출하면 신청 내용으로 참가 신청서(한글·PDF)가 만들어집니다.</p>` : html`
+      ${app.error ? html`<div class="notice bad" role="alert"><b>신청서를 만들지 못했습니다.</b> ${app.error.replace(/^\S+\s/, '')} — 5분 안에 자동으로 다시 만들거나 [다시 만들기]를 누르세요.</div>` : ''}
+      <p class="small muted" style="margin:0">${app.pdf ? html`${fmtWhen(app.at)}에 지금 내용으로 만들었습니다. 팀 정보·팀원이 바뀌면 자동으로 다시 만듭니다. 드라이브(소유자 계정): <a href=${app.pdf} target="_blank" rel="noopener">PDF</a> · <a href=${app.hwpx} target="_blank" rel="noopener">한글</a>` : '만드는 중입니다…'}</p>
+      <div class="btn-row">
+        <button class="btn btn-sm btn-primary" disabled=${!app.pdf} onClick=${() => download('pdf')}>PDF 내려받기</button>
+        <button class="btn btn-sm" disabled=${!app.hwpx} onClick=${() => download('hwpx')}>한글 내려받기</button>
+        <button class="btn btn-sm btn-ghost" disabled=${busy} onClick=${() => call('adminAppRefresh', {}, '신청서를 다시 만들었습니다.')}>다시 만들기</button>
+      </div>`}
+    <dl class="kv">
+      <dt>서면 원본</dt><dd>${team.form
+        ? html`${team.form.name} <span class="small muted">${team.form.size} · ${fmtWhen(team.form.at)}</span>
+          <button class="link-btn" onClick=${() => download('form')}>내려받기</button>${' · '}<button class="link-btn" disabled=${busy} onClick=${() => { if (confirm('첨부한 서면 원본을 지울까요? 드라이브 휴지통으로 갑니다.')) call('adminForm', { remove: true }, '첨부를 지웠습니다.'); }}>지우기</button>`
+        : html`<span class="muted">없음</span>`}</dd>
+    </dl>
+    <${FilePick} label=${busy && file ? '올리는 중…' : team.form ? '다른 파일로 바꾸기' : '서명한 원본 첨부'} file=${null} onPick=${attach} error=${error} />
+  </section>`;
+}
+
+/** 팀원 정정·추가(교체) 칸. mode: {kind:'edit', m} | {kind:'add'} */
+function MemberEditor({ mode, teamId, data, onSaved, onClose }) {
+  const init = mode.kind === 'edit'
+    ? { deptCode: mode.m.deptCode, studentNo: mode.m.studentNo, name: mode.m.name, phone: mode.m.phone, email: mode.m.email, shirt: mode.m.shirt, agreeMedia: mode.m.agreeMedia }
+    : emptyPaper();
+  const [m, setMember] = useState(init);
+  const [consent, setConsent] = useState(false);
+  const [errors, setErrors] = useState({});
+  const set = (k, v) => setMember((x) => ({ ...x, [k]: v }));
+  const save = async () => {
+    if (mode.kind === 'add' && !consent) { setErrors({ consent: '서면으로 받은 본인 동의를 확인하고 체크해 주세요.' }); return; }
+    try {
+      await api(mode.kind === 'edit' ? 'adminMemberUpdate' : 'adminMemberAdd',
+        { token: token(), teamId, key: mode.kind === 'edit' ? mode.m.key : undefined, member: m, consent });
+      onClose();
+      onSaved(mode.kind === 'edit' ? '참가자 정보를 고쳤습니다.' : '팀원을 추가했습니다.');
+    } catch (err) {
+      setErrors(serverErrors(err));
+    }
+  };
+  return html`<div class="panel">
+    <b>${mode.kind === 'edit' ? `${mode.m.name} 정보 고치기` : '팀원 추가(교체)'}</b>
+    ${mode.kind === 'add' ? html`<p class="small muted" style="margin:0">서면으로 본인 동의를 받은 사람을 넣습니다. 온라인으로 받으려면 팀장이 「내 신청」의 초대 링크를 보내면 됩니다.</p>` : ''}
+    <${PaperMemberFields} m=${m} set=${set} errors=${errors} prefix="member." departments=${data.departments} idp="adm-member" />
+    ${mode.kind === 'add' ? html`<label class=${`check consent${errors.consent ? ' bad' : ''}`}><input type="checkbox" checked=${consent} onChange=${(e) => setConsent(e.target.checked)} />
+      <span>이 사람의 필수 동의(개인정보 수집·이용, 국외 이전, 의무 교육 참석 확약)를 서면으로 받았습니다.</span></label>` : ''}
+    ${errors.consent || errors._form || errors.member ? html`<div class="err" role="alert">${errors.consent || errors._form || errors.member}</div>` : ''}
+    <div class="btn-row"><button class="btn btn-sm btn-primary" onClick=${save}>저장</button><button class="btn btn-sm" onClick=${onClose}>취소</button></div>
+  </div>`;
+}
+
+/** 팀 정보(신청 내용) 고치기. */
+function TeamEditor({ team, data, onSaved, onClose }) {
+  const { config } = useApp();
+  const [t, setT] = useState({ name: team.name, repDept: team.repDept.code, topic: team.topic, projectName: team.projectName, summary: team.summary, aiTools: team.aiTools, motivation: team.motivation });
+  const [errors, setErrors] = useState({});
+  const set = (k, v) => setT((x) => ({ ...x, [k]: v }));
+  const save = async () => {
+    const errs = checkTeam(t, config.teamFields);
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+    try {
+      await api('adminTeam', { token: token(), teamId: team.id, patch: t });
+      onClose();
+      onSaved('팀 정보를 고쳤습니다.');
+    } catch (err) {
+      setErrors(serverErrors(err));
+    }
+  };
+  return html`<div class="stack">
+    <${TeamFields} t=${t} set=${set} errors=${errors} config=${{ ...config, departments: data.departments }} />
+    ${errors._form ? html`<div class="err" role="alert">${errors._form}</div>` : ''}
+    <div class="btn-row"><button class="btn btn-sm btn-primary" onClick=${save}>저장</button><button class="btn btn-sm" onClick=${onClose}>취소</button></div>
+  </div>`;
+}
+
 /* ───────────── 팀 상세 ───────────── */
 
 function TeamDrawer({ team, data, onClose, reload }) {
@@ -163,7 +389,10 @@ function TeamDrawer({ team, data, onClose, reload }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [typed, setTyped] = useState('');
   const [tempPin, setTempPin] = useState(null);
+  const [editTeam, setEditTeam] = useState(false);
+  const [memberMode, setMemberMode] = useState(null);
   const [busy, run] = useBusy();
+  const saved = async (msg) => { notify(msg); await reload(); };
   const judgeName = Object.fromEntries(data.judges.map((j) => [j.id, j.name]));
   // 바뀐 칸만 보낸다(저장소 주소가 그대로면 제출·마감 커밋 기록을 건드리지 않게).
   const saveRepo = () => {
@@ -206,14 +435,17 @@ function TeamDrawer({ team, data, onClose, reload }) {
           <tbody>${team.members.map((m) => html`<tr>
             <td>${m.role === 'leader' ? '팀장' : '팀원'}</td><td>${m.deptName}</td><td class="num">${m.studentNo}</td><td>${m.name}</td>
             <td class="num nowrap">${m.phone}</td><td>${m.email}</td><td>${m.shirt}</td><td>${m.agreeMedia ? '동의' : '미동의'}</td>
-            <td class="small nowrap">${fmtShort(m.agreePrivacyAt)}</td>
-            <td class="nowrap"><button class="link-btn" disabled=${busy} onClick=${async () => {
+            <td class="small nowrap">${fmtShort(m.agreePrivacyAt)}${m.agreeBy === 'paper' ? ' · 서면' : ''}</td>
+            <td class="nowrap"><button class="link-btn" disabled=${busy} onClick=${() => setMemberMode({ kind: 'edit', m })}>고치기</button>${' · '}<button class="link-btn" disabled=${busy} onClick=${async () => {
               if (!confirm(`${m.name} 님의 비밀번호를 임시 비밀번호로 바꿀까요? 본인 확인을 마친 뒤에만 하세요.`)) return;
               const res = await call('adminPinReset', { key: m.key }, '임시 비밀번호를 만들었습니다.');
               if (res) setTempPin({ name: m.name, pin: res.pin });
             }}>비밀번호 재설정</button>${' · '}<button class="link-btn" disabled=${busy} onClick=${() => { if (confirm(`${m.name} 님의 신청 정보를 삭제할까요?`)) call('adminMemberRemove', { key: m.key }, '참가자를 삭제했습니다.'); }}>삭제</button></td>
           </tr>`)}</tbody>
         </table></div>
+        ${memberMode ? html`<${MemberEditor} key=${memberMode.kind + (memberMode.m ? memberMode.m.key : '')} mode=${memberMode} teamId=${team.id} data=${data} onSaved=${saved} onClose=${() => setMemberMode(null)} />`
+          : team.count < 4 ? html`<div class="btn-row"><button class="btn btn-sm" onClick=${() => setMemberMode({ kind: 'add' })}>팀원 추가(교체)</button>
+            <span class="small muted">빠질 사람을 [삭제]한 뒤 새 사람을 넣으면 교체됩니다. 신청서는 새 명단으로 다시 만들어집니다.</span></div>` : ''}
         ${tempPin ? html`<div class="notice ok" role="status" style="margin-top:12px">
           <b>${tempPin.name}</b> 님의 임시 비밀번호: <span class="codeline">${tempPin.pin}</span>
           <div class="small">본인에게만 전달하고, 로그인 뒤 「내 신청 → 정정 → 비밀번호 바꾸기」로 바꾸게 하세요. 이 창을 닫으면 다시 볼 수 없습니다.</div>
@@ -221,19 +453,19 @@ function TeamDrawer({ team, data, onClose, reload }) {
       </section>
 
       <section class="panel">
-        <div class="panel-h"><h2>신청 내용</h2><span class="small muted">생성 ${fmtWhen(team.createdAt)}${team.submittedAt ? ` · 접수 ${fmtWhen(team.submittedAt)}` : ''}</span></div>
-        <dl class="kv">
+        <div class="panel-h"><h2>신청 내용</h2><span class="small muted">생성 ${fmtWhen(team.createdAt)}${team.submittedAt ? ` · 접수 ${fmtWhen(team.submittedAt)}` : ''}
+          ${editTeam ? '' : html` · <button class="link-btn" onClick=${() => setEditTeam(true)}>고치기</button>`}</span></div>
+        ${editTeam ? html`<${TeamEditor} team=${team} data=${data} onSaved=${saved} onClose=${() => setEditTeam(false)} />` : html`<dl class="kv">
           <dt>대표 학과</dt><dd>${team.repDept.name} · ${team.repDept.series}</dd>
           <dt>참가 주제(안)</dt><dd>${team.topic}</dd>
           <dt>프로젝트명(안)</dt><dd>${team.projectName}</dd>
           <dt>프로젝트 개요</dt><dd>${team.summary}</dd>
           <dt>AI 도구</dt><dd>${team.aiTools}</dd>
           <dt>참가 동기</dt><dd>${team.motivation}</dd>
-          <dt>신청서 파일</dt><dd>${team.form
-            ? html`<a href=${team.form.url} target="_blank" rel="noopener">${team.form.name}</a> <span class="small muted">${team.form.size} · ${fmtWhen(team.form.at)} · 드라이브(소유자 계정)에서 열림</span>`
-            : html`<span class="flag">아직 올리지 않음</span>`}</dd>
-        </dl>
+        </dl>`}
       </section>
+
+      <${AppFilesPanel} team=${team} call=${call} busy=${busy} />
 
       <section class="panel">
         <div class="panel-h"><h2>운영 메모</h2></div>
@@ -674,6 +906,7 @@ export function AdminView() {
   const [tab, setTab] = useState('kanban');
   const [openId, setOpenId] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [paper, setPaper] = useState(false);
 
   const load = async () => {
     try {
@@ -719,6 +952,7 @@ export function AdminView() {
         <p class="num">접수 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명) · 선정 <b>${ph.selectedTeams}/${ph.selectTarget}팀</b> · 팀 구성 중 ${ph.formingTeams}팀 · 접수 ${ph.apply === 'open' ? '진행 중' : ph.apply === 'full' ? '정원 마감' : ph.apply === 'before' ? '시작 전' : '마감'}</p>
       </div>
       <div class="btn-row">
+        <button class="btn" onClick=${() => setPaper(true)}>서면 신청 입력</button>
         <button class="btn btn-primary" onClick=${excel} disabled=${exporting}>${exporting ? '만드는 중…' : '엑셀로 저장'}</button>
         <button class="btn" onClick=${load}>새로 고침</button>
         <button class="btn btn-ghost" onClick=${() => { session.clear('admin'); setData(null); setState('login'); }}>로그아웃</button>
@@ -732,5 +966,6 @@ export function AdminView() {
     ${tab === 'judging' ? html`<${JudgingTab} data=${data} reload=${load} openTeam=${setOpenId} />` : ''}
     ${tab === 'settings' ? html`<${SettingsTab} key=${JSON.stringify(data.settings)} data=${data} reload=${load} onCodeChanged=${() => notify('관리자 코드를 바꿨습니다.')} />` : ''}
     ${team ? html`<${TeamDrawer} key=${team.id + team.updatedAt} team=${team} data=${data} reload=${load} onClose=${() => setOpenId('')} />` : ''}
+    ${paper ? html`<${PaperApplication} data=${data} onClose=${() => setPaper(false)} onDone=${async (id) => { setPaper(false); await load(); setOpenId(id); }} />` : ''}
   </div>`;
 }

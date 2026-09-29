@@ -1,9 +1,9 @@
 // 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 결과물(GitHub) 제출, 본인 정보 정정·철회.
 import {
-  html, useState, useEffect, useApp, api, session, digits, fmtWhen, fileToBase64, STATUS_LABEL,
+  html, useState, useEffect, useApp, api, session, digits, fmtWhen, STATUS_LABEL,
 } from '../lib.js';
 import {
-  Field, LoadFailed, Modal, Slots, Status, Veil, MemberFields, FormTemplates, useBusy, checkMember, serverErrors, focusFirstError,
+  Field, LoadFailed, Modal, Slots, Status, Veil, MemberFields, useBusy, checkMember, serverErrors, focusFirstError,
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
 
@@ -59,81 +59,20 @@ function StatusNotice({ view, config }) {
   if (t.status === 'draft') {
     return html`<div class="notice warn">
       <b>아직 신청 전입니다.</b> ${t.count < config.teamSize ? `팀원 ${config.teamSize - t.count}명이 더 합류해야 합니다. ` : ''}
-      ${leader ? '4명이 모이고 신청서 파일을 올리면 아래 [신청서 제출]을 눌러 주세요.' : '4명이 모이면 팀장이 신청서 파일을 올리고 제출합니다.'}
+      ${leader ? '4명이 모두 모이면 아래 [신청서 제출]을 눌러 주세요.' : '4명이 모이면 팀장이 제출합니다.'}
     </div>`;
   }
   const refill = t.count < config.teamSize
-    ? html` <b>팀원이 빠져 지금 ${t.count}명입니다.</b> ${leader ? '아래 초대 링크로 새 팀원을 받은 뒤 신청서 파일을 다시 올려 주세요.' : '팀장이 새 팀원을 받고 신청서를 다시 올립니다.'}`
+    ? html` <b>팀원이 빠져 지금 ${t.count}명입니다.</b> ${leader ? '아래 초대 링크로 새 팀원을 받아 주세요. 신청서는 새 명단으로 자동으로 다시 만들어집니다.' : '팀장이 새 팀원을 받습니다.'}`
     : '';
   if (t.status === 'submitted') {
-    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>접수 완료</b> (${fmtWhen(t.submittedAt)}). 심사를 거쳐 선발 결과를 이 화면과 연락처로 안내합니다.${refill}</div>`;
+    return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>접수 완료</b> (${fmtWhen(t.submittedAt)}). ${t.app ? '참가 신청서(한글·PDF)가 만들어져 운영진에게 전달되었습니다. ' : ''}심사를 거쳐 선발 결과를 이 화면과 연락처로 안내합니다.${refill}</div>`;
   }
   if (t.status === 'selected') {
     return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>본선 참가팀으로 선정되었습니다.</b> ${config.training.notice}${refill}</div>`;
   }
   if (t.status === 'waitlist') return html`<div class="notice warn"><b>예비 팀입니다.</b> 선정 팀에 결원이 생기면 차례로 연락드립니다.</div>`;
   return html`<div class="notice"><b>이번에는 선정되지 않았습니다.</b> 관심 가져 주셔서 고맙습니다.</div>`;
-}
-
-/** 신청서 파일: 4명이 모두 합류해 동의한 뒤 팀장이 양식을 적고 서명한 파일을 올린다(서버가 형식·내용을 다시 확인). */
-function FormPanel({ view, onView }) {
-  const { config, notify } = useApp();
-  const { types, maxBytes } = config.form;
-  const t = view.team;
-  const leader = view.me.role === 'leader';
-  const [busy, run] = useBusy();
-  const [error, setError] = useState('');
-  const pick = (e) => {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = '';
-    if (!file) return;
-    const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
-    if (!types.includes(ext)) {
-      setError('PDF, 워드(.doc·.docx), 한글(.hwpx) 파일만 올릴 수 있습니다. 한글(.hwp) 파일은 .hwpx 나 PDF 로 저장해 주세요.');
-      return;
-    }
-    if (file.size > maxBytes) {
-      setError(`파일이 너무 큽니다. ${Math.round(maxBytes / 1048576)}MB 이하로 올려 주세요.`);
-      return;
-    }
-    setError('');
-    run(async () => {
-      try {
-        const data = await fileToBase64(file);
-        const res = await api('teamForm', { token: session.get('member'), file: { name: file.name, data } });
-        onView(res.view);
-        notify('신청서 파일을 올렸습니다.');
-      } catch (err) {
-        // 연결이 끊겨 다시 보낸 요청이 거절됐을 수 있다 — 첫 요청이 실제로 저장됐는지 확인한다.
-        const now = err.ambiguous ? await api('me', { token: session.get('member') }).catch(() => null) : null;
-        const saved = now && now.view.team.form;
-        if (saved && saved.name === file.name.slice(-100) && saved.at !== (t.form && t.form.at)) {
-          onView(now.view);
-          notify('신청서 파일을 올렸습니다.');
-          return;
-        }
-        setError(err.message);
-      }
-    });
-  };
-  return html`<section class="panel">
-    <div class="panel-h"><h2>신청서 파일</h2><span class="small muted">PDF · 워드 · 한글(.hwpx), 10MB 이하</span></div>
-    ${t.form
-      ? html`<dl class="kv"><dt>올린 파일</dt><dd>${t.form.name}</dd><dt>올린 시각</dt><dd>${fmtWhen(t.form.at)} · ${t.form.size}</dd></dl>`
-      : html`<div class="notice warn">${view.formBlocked
-        || (leader
-          ? '양식을 내려받아 팀원 4명의 정보를 적고 팀장이 서명(또는 날인)한 뒤 올려 주세요.'
-          : '팀장이 아직 신청서 파일을 올리지 않았습니다.')}</div>`}
-    <${FormTemplates} />
-    ${view.can.form ? html`<div class="btn-row">
-      <label class=${`btn filepick${t.form ? '' : ' btn-primary'}`} aria-disabled=${busy ? 'true' : 'false'}>
-        ${busy ? '올리는 중…' : t.form ? '다른 파일로 바꾸기' : '파일 골라 올리기'}
-        <input type="file" accept=".pdf,.doc,.docx,.hwpx" disabled=${busy} onChange=${pick} aria-label="신청서 파일 고르기" />
-      </label>
-      <span class="small muted">팀원이 바뀌면 신청서를 다시 올려야 합니다.</span>
-    </div>` : ''}
-    ${error ? html`<div class="err" role="alert">${error}</div>` : ''}
-  </section>`;
 }
 
 function SubmitPanel({ view, onView }) {
@@ -160,7 +99,8 @@ function SubmitPanel({ view, onView }) {
   return html`<section class="panel">
     <div class="panel-h"><h2>신청서 제출</h2><span class="small muted">4인 1조일 때만 제출됩니다</span></div>
     ${view.submitBlockers.length ? html`<ul class="checklist">${view.submitBlockers.map((b) => html`<li><span class="n">✕</span>${b}</li>`)}</ul>`
-      : html`<ul class="checklist"><li><span class="y">✓</span>팀원 4명이 모두 합류하고 각자 동의했습니다.</li><li><span class="y">✓</span>신청서 파일을 올렸습니다.</li></ul>`}
+      : html`<ul class="checklist"><li><span class="y">✓</span>팀원 4명이 모두 합류하고 각자 동의했습니다.</li></ul>`}
+    <p class="small muted" style="margin:0">제출하면 입력한 내용으로 공지 양식의 참가 신청서(한글·PDF)가 자동으로 만들어져 운영진에게 전달됩니다. 따로 작성하거나 올릴 파일은 없습니다.</p>
     ${error ? html`<div class="err" role="alert">${error}</div>` : ''}
     <div><button class="btn btn-accent btn-lg" disabled=${!view.can.submit || busy} onClick=${submit}>${busy ? '제출하는 중…' : '신청서 제출'}</button></div>
   </section>`;
@@ -275,7 +215,9 @@ function MembersPanel({ view, onView }) {
     <p class="small muted" style="margin:0">다른 팀원의 학번·연락처는 개인정보라서 가립니다.</p>
     ${confirm ? html`<${Modal} title=${confirm.kind === 'kick' ? '팀원 내보내기' : '팀장 넘기기'} onClose=${() => setConfirm(null)}>
       <p>${confirm.kind === 'kick'
-        ? `${confirm.m.name}(${confirm.m.deptName}) 님을 팀에서 내보냅니다. 그 사람의 신청 정보는 삭제되고, 접수 완료 상태였다면 다시 '팀 구성 중'이 됩니다.`
+        ? `${confirm.m.name}(${confirm.m.deptName}) 님을 팀에서 내보냅니다. 그 사람의 신청 정보는 삭제됩니다. ${t.status === 'draft'
+          ? ''
+          : '신청은 그대로 유지되고, 초대 링크로 새 팀원을 받으면 신청서가 새 명단으로 다시 만들어집니다.'}`
         : `${confirm.m.name}(${confirm.m.deptName}) 님이 팀장이 되고, 나는 팀원이 됩니다.`}</p>
       <div class="btn-row">
         <button class=${`btn ${confirm.kind === 'kick' ? 'btn-danger' : 'btn-primary'}`} disabled=${busy}
@@ -403,7 +345,6 @@ function MyInfoPanel({ view, onView, config }) {
 function DangerPanel({ view, onLeft }) {
   const leader = view.me.role === 'leader';
   const alone = view.team.count === 1;
-  const inApply = view.phase.apply === 'open' || view.phase.apply === 'full';
   const [modal, setModal] = useState('');
   const [checked, setChecked] = useState(false);
   const [typed, setTyped] = useState('');
@@ -438,8 +379,7 @@ function DangerPanel({ view, onLeft }) {
     ${leader && !alone ? html`<p class="small muted" style="margin:0">팀장이 혼자 빠지려면 먼저 다른 팀원에게 팀장을 넘겨 주세요.</p>` : ''}
     ${modal === 'withdraw' ? html`<${Modal} title="신청 철회" onClose=${close}>
       <p>철회하면 내 신청 정보(학번·연락처·이메일 등)가 바로 삭제됩니다. ${leader ? '팀장 혼자이므로 팀도 함께 삭제됩니다.'
-        : inApply ? '팀 인원이 줄어 접수 완료 상태였다면 다시 \'팀 구성 중\'이 됩니다.'
-          : '팀은 지금 상태를 유지하고, 팀장이 새 팀원을 받아 신청서를 다시 올려야 합니다.'}</p>
+        : view.team.status === 'draft' ? '' : '팀의 신청은 유지되고, 팀장이 새 팀원을 받으면 신청서가 새 명단으로 다시 만들어집니다.'}</p>
       <label class="check"><input type="checkbox" checked=${checked} onChange=${(e) => setChecked(e.target.checked)} /><span>위 내용을 확인했습니다.</span></label>
       ${error ? html`<div class="err" style="margin-top:10px">${error}</div>` : ''}
       <div class="btn-row" style="margin-top:16px"><button class="btn btn-danger" disabled=${!checked || busy} onClick=${withdraw}>철회하고 삭제</button><button class="btn" onClick=${close}>닫기</button></div>
@@ -529,7 +469,6 @@ export function MeView() {
       <div class="stack">
         <${StatusNotice} view=${view} config=${config} />
         ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} onRotate=${rotateInvite} />` : ''}
-        <${FormPanel} view=${view} onView=${setView} />
         <${SubmitPanel} view=${view} onView=${setView} />
         <${RepoPanel} view=${view} onView=${setView} config=${config} />
         <${MembersPanel} view=${view} onView=${setView} />
