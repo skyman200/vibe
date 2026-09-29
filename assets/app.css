@@ -52,7 +52,8 @@ button { font: inherit; }
 
 .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 20px; }
 .wrap-wide { max-width: 1320px; margin: 0 auto; padding: 0 20px; }
-.page { padding-top: 36px; padding-bottom: 80px; }   /* 좌우 여백은 .wrap 이 준다(머리와 줄 맞춤) */
+.page { padding-top: 36px; padding-bottom: 80px; }
+#main { min-height: 100vh; }   /* 불러오기 전후로 꼬리(footer)가 화면 안에서 튀지 않게 */   /* 좌우 여백은 .wrap 이 준다(머리와 줄 맞춤) */
 .page-h { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 20px; margin-bottom: 28px; border-bottom: 2px solid var(--ink); }
 .page-h h1 { font-size: 30px; margin: 0; letter-spacing: -0.03em; }
 .page-h p { margin: 6px 0 0; color: var(--ink-2); max-width: 62ch; }
@@ -203,9 +204,40 @@ button { font: inherit; }
 /* ── 홈 ── */
 .poster { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 56px; padding: 56px 0 44px; align-items: end; }
 .overline { font-size: 14px; color: var(--ink-2); letter-spacing: .01em; margin: 0; }
-.poster h1 { font-size: clamp(42px, 6.4vw, 76px); line-height: 1.02; letter-spacing: -0.045em; font-weight: 800; margin: 14px 0 20px; }
+.poster h1 { font-size: clamp(42px, 6.4vw, 76px); line-height: 1.02; letter-spacing: -0.045em; font-weight: 800; margin: 14px 0 22px; }
 .poster h1 .red { color: var(--red); }
-.poster .lede { font-size: 17px; color: var(--ink-2); max-width: 34ch; margin-bottom: 26px; }
+.poster .lede { font-size: 17px; color: var(--ink-2); max-width: 36ch; margin-bottom: 26px; }
+
+/* 첫 화면 움직임: 제목이 아래에서 올라오고, 나머지가 차례로 떠오르며, 프롬프트가 타이핑된다(한 번만, 동작 줄이기면 멈춤) */
+.poster h1 .line { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
+.poster h1 .line > span { display: inline-block; animation: rise .95s cubic-bezier(.19, 1, .22, 1) both; }
+.poster h1 .line + .line > span { animation-delay: .09s; }
+.poster .overline { animation: fade-up .6s .05s ease-out both; }
+.poster .prompt { animation: fade-up .6s .3s ease-out both; }
+.poster .lede { animation: fade-up .6s .42s ease-out both; }
+.poster .btn-row, .poster .btn-row + .small { animation: fade-up .6s .52s ease-out both; }
+.poster .facts { animation: fade-up .7s .36s ease-out both; }
+@keyframes rise { from { transform: translateY(108%); } to { transform: none; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+.prompt { display: grid; gap: 8px; justify-items: start; margin: 0 0 18px; }
+.prompt-dept { font: 700 14px/1 var(--sans); color: #fff; background: var(--ink); border-radius: 999px; padding: 6px 11px 5px; }
+.prompt-text { font: 600 21px/1.45 var(--sans); color: var(--ink); min-height: 1.45em; letter-spacing: -0.02em; }
+.prompt-mark { color: var(--red); font: 700 1em/1 var(--mono); margin-right: 2px; }
+.caret { display: inline-block; width: 3px; height: 1.05em; margin-left: 3px; vertical-align: -0.16em; background: var(--red); animation: blink 1.05s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.marquee { background: var(--red); color: #fff; overflow: hidden; }
+.marquee-track { display: flex; width: max-content; animation: marquee 42s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+.marquee-row { display: flex; align-items: center; gap: 24px; padding: 14px 24px 14px 0; font: 700 19px/1.2 var(--sans); letter-spacing: -0.01em; white-space: nowrap; }
+.marquee-row i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .55); flex: none; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+.marquee + .wrap .ticker { border-top: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .poster *, .marquee-track, .caret { animation: none !important; }
+}
 .facts { display: grid; grid-template-columns: 84px 1fr; margin: 0; border-top: 2px solid var(--ink); }
 .facts dt, .facts dd { margin: 0; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .facts dt { color: var(--muted); font-size: 14px; }
@@ -357,6 +389,8 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
 /* ── 반응형 ── */
 @media (max-width: 960px) {
   .poster { grid-template-columns: 1fr; gap: 28px; padding-top: 36px; }
+  .prompt-text { font-size: 18px; min-height: 2.9em; }
+  .marquee-row { font-size: 17px; gap: 18px; padding: 12px 18px 12px 0; }
   .sec { grid-template-columns: 1fr; gap: 16px; padding: 34px 0; }
   .two-col, .jgrid { grid-template-columns: 1fr; }
   .jlist { position: static; }
