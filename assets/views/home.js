@@ -131,18 +131,18 @@ function RubricTable({ title, rows, note }) {
   </div>`;
 }
 
-export function HomeView() {
-  const { config } = useApp();
-  const e = config.event;
-  const ph = config.phase;
-  const state = applyStateText(ph, e);
-  const awards = e.awards;
-  const awardTeams = PRIZES.reduce((a, [k]) => a + awards[k], 0);
-  const awardTotal = PRIZES.reduce((a, [k, , amount]) => a + awards[k] * amount, 0);
-  const canCreate = ph.apply === 'open';
+/** 빈칸 자리(설정을 받기 전): 글자 높이만큼의 흐린 막대 — 받은 뒤 같은 자리에 값이 들어가 화면이 흔들리지 않는다. */
+const Skel = ({ w = '9em' }) => html`<span class="skel" style=${`width:${w}`}></span>`;
 
-  return html`<div class="wrap">
-    <section class="poster">
+/**
+ * 첫 화면 윗부분. 설정(config)을 받기 전에도 바로 그린다 — 제목·소개·버튼은 고정 문구이고, 행사 정보 칸만 빈칸 자리로
+ * 두었다가 설정이 오면 같은 자리에 채운다(같은 요소라 제목 움직임이 다시 시작되지 않는다).
+ */
+function Hero({ config }) {
+  const e = config && config.event;
+  const ph = config && config.phase;
+  const apply = ph ? ph.apply : 'open';
+  return html`<section class="poster">
       <div>
         <p class="overline">2026학년도 DIT AID전환중점전문대학지원사업</p>
         <h1 aria-label="DIT 바이브코딩 해커톤">
@@ -152,24 +152,35 @@ export function HomeView() {
         <${PromptLine} />
         <p class="lede">말로 설명하면 AI가 코드를 씁니다. 이틀 동안 웹·앱 서비스를 기획하고 만드는 팀 대항전입니다. 전공은 묻지 않습니다.</p>
         <div class="btn-row">
-          ${canCreate
+          ${apply === 'open'
             ? html`<a class="btn btn-accent btn-lg" href="#/apply">팀 만들기</a>`
-            : html`<span class="btn btn-lg" aria-disabled="true">${ph.apply === 'before' ? '접수 전' : '접수 마감'}</span>`}
+            : html`<span class="btn btn-lg" aria-disabled="true">${apply === 'before' ? '접수 전' : '접수 마감'}</span>`}
           <a class="btn btn-lg" href="#/board">참가현황 보기</a>
         </div>
         <p class="small muted" style="margin-top:14px">팀원은 팀장이 보낸 초대 링크로 합류합니다. 이미 신청했다면 <a href="#/me">내 신청</a>에서 확인하세요.</p>
       </div>
-      <dl class="facts">
-        <dt>일시</dt><dd>${e.period}</dd>
-        <dt>장소</dt><dd>${e.venue}</dd>
+      <dl class="facts" aria-busy=${config ? 'false' : 'true'}>
+        <dt>일시</dt><dd>${e ? e.period : html`<${Skel} w="14em" />`}</dd>
+        <dt>장소</dt><dd>${e ? e.venue : html`<${Skel} w="12em" />`}</dd>
         <dt>대상</dt><dd>본교 재학생<small>팀 단위 참가(학과 추천) · 4인 1조</small></dd>
-        <dt>선발</dt><dd>최종 ${ph.selectTarget}팀<small>신청은 ${ph.applicantCap}명(${ph.teamCap}팀)까지 받아 심사 후 선발합니다</small></dd>
-        <dt>접수</dt><dd class="num">${fmtWhen(e.applyStart)} ~ ${fmtWhen(e.applyEnd)}</dd>
+        <dt>선발</dt><dd>${ph ? `최종 ${ph.selectTarget}팀` : html`<${Skel} w="5em" />`}<small>${ph ? `신청은 ${ph.applicantCap}명(${ph.teamCap}팀)까지 받아 심사 후 선발합니다` : html`<${Skel} w="16em" />`}</small></dd>
+        <dt>접수</dt><dd class="num">${e ? `${fmtWhen(e.applyStart)} ~ ${fmtWhen(e.applyEnd)}` : html`<${Skel} w="13em" />`}</dd>
         <dt>제공</dt><dd>팀당 Claude Code 또는 Codex</dd>
       </dl>
-    </section>
+    </section>`;
+}
 
-  </div>
+export function HomeView() {
+  const { config } = useApp();
+  if (!config) return html`<div class="wrap"><${Hero} config=${null} /></div>`;
+  const e = config.event;
+  const ph = config.phase;
+  const state = applyStateText(ph, e);
+  const awards = e.awards;
+  const awardTeams = PRIZES.reduce((a, [k]) => a + awards[k], 0);
+  const awardTotal = PRIZES.reduce((a, [k, , amount]) => a + awards[k] * amount, 0);
+
+  return html`<div class="wrap"><${Hero} config=${config} /></div>
 
   <${Marquee} items=${[
       `총상금 ${manWon(awardTotal)}`,

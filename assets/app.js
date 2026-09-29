@@ -124,7 +124,9 @@ function App() {
   }, [route.name]);
 
   let view;
-  if (!config) view = html`<${Loading} error=${error} retry=${loadConfig} />`;
+  // 첫 화면(안내)은 설정을 기다리지 않고 바로 그린다(제목·버튼은 고정 문구, 행사 정보는 받는 대로 채움).
+  if (!config && route.name === 'home' && !error) view = html`<${HomeView} />`;
+  else if (!config) view = html`<${Loading} error=${error} retry=${loadConfig} />`;
   else if (route.name === 'apply') view = html`<${ApplyView} />`;
   else if (route.name === 'join') view = html`<${JoinView} route=${route} />`;
   else if (route.name === 'board') view = html`<${BoardView} />`;
