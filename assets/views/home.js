@@ -1,6 +1,6 @@
 // 안내: 공지(notice.hwpx) 내용을 한 장짜리 행사 안내문처럼.
 import {
-  html, useApp, useState, useEffect, useRef, fmtWhen, untilText,
+  html, useApp, useState, useEffect, fmtWhen, untilText,
 } from '../lib.js';
 
 const SCHEDULE = [
@@ -43,14 +43,17 @@ const PROMPTS = [
 
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** 프롬프트 한 줄을 타이핑 → 잠시 멈춤 → 지우기 → 다음 학과. 탭이 가려져 있으면 쉬고, 동작 줄이기 설정이면 멈춘 글로 보인다. */
+/**
+ * 프롬프트 한 줄: 첫 문장은 처음부터 다 보이고(첫 화면이 기다림 없이 완성된 모습), 잠시 뒤 지우기 → 다음 학과 타이핑 → 멈춤 …
+ * 탭이 가려져 있으면 쉬고, 동작 줄이기 설정이면 첫 문장에서 멈춘다.
+ */
 function PromptLine() {
-  const [shown, setShown] = useState(() => (reducedMotion() ? { i: 0, n: PROMPTS[0][1].length } : { i: 0, n: 0 }));
+  const [shown, setShown] = useState({ i: 0, n: Array.from(PROMPTS[0][1]).length });
   useEffect(() => {
     if (reducedMotion()) return undefined;
     let i = 0;
-    let n = 0;
-    let dir = 1;
+    let n = Array.from(PROMPTS[0][1]).length;
+    let dir = -1;
     let timer = 0;
     const tick = () => {
       if (document.hidden) { timer = setTimeout(tick, 500); return; }
@@ -67,7 +70,7 @@ function PromptLine() {
       setShown({ i, n });
       timer = setTimeout(tick, wait);
     };
-    timer = setTimeout(tick, 900);
+    timer = setTimeout(tick, 2600);
     return () => clearTimeout(timer);
   }, []);
   const [dept, text] = PROMPTS[shown.i];
@@ -75,27 +78,6 @@ function PromptLine() {
     <span class="prompt-dept">${dept}</span>
     <span class="prompt-text"><span class="prompt-mark">›</span> ${Array.from(text).slice(0, shown.n).join('')}<span class="caret"></span></span>
   </div>`;
-}
-
-/** 숫자가 0 에서 목표 값까지 올라간다(처음 한 번). 동작 줄이기 설정이면 바로 목표 값. */
-function CountUp({ to }) {
-  const [v, setV] = useState(() => (reducedMotion() ? to : 0));
-  const from = useRef(0);
-  useEffect(() => {
-    if (reducedMotion() || to === from.current) { setV(to); from.current = to; return undefined; }
-    const start = performance.now();
-    const base = from.current;
-    let raf = 0;
-    const step = (now) => {
-      const t = Math.min(1, (now - start) / 900);
-      setV(Math.round(base + (to - base) * (1 - (1 - t) ** 3)));
-      if (t < 1) raf = requestAnimationFrame(step);
-      else from.current = to;
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [to]);
-  return v;
 }
 
 /** 빨간 띠: 행사 핵심을 흘려 보낸다(같은 내용을 두 번 이어 붙여 끊김 없이 돈다). 정보는 옆 표에도 있으므로 화면 읽기에서는 뺀다. */
@@ -145,10 +127,7 @@ function Hero({ config }) {
   return html`<section class="poster">
       <div>
         <p class="overline">2026학년도 DIT AID전환중점전문대학지원사업</p>
-        <h1 aria-label="DIT 바이브코딩 해커톤">
-          <span class="line" aria-hidden="true"><span>DIT <span class="red">바이브코딩</span></span></span>
-          <span class="line" aria-hidden="true"><span>해커톤</span></span>
-        </h1>
+        <h1>DIT <span class="red">바이브코딩</span><br />해커톤</h1>
         <${PromptLine} />
         <p class="lede">말로 설명하면 AI가 코드를 씁니다. 이틀 동안 웹·앱 서비스를 기획하고 만드는 팀 대항전입니다. 전공은 묻지 않습니다.</p>
         <div class="btn-row">
@@ -194,9 +173,9 @@ export function HomeView() {
 
   <div class="wrap">
     <div class="ticker" aria-label="접수 현황">
-      <div><b><${CountUp} to=${ph.appliedTeams} />팀</b><span>접수 완료</span></div>
-      <div><b><${CountUp} to=${ph.applicants} /><span class="of"> / ${ph.applicantCap}명</span></b><span>신청 인원 / 정원</span></div>
-      <div><b><${CountUp} to=${ph.formingTeams} />팀</b><span>팀 구성 중(4명 모집 중)</span></div>
+      <div><b>${ph.appliedTeams}팀</b><span>접수 완료</span></div>
+      <div><b>${ph.applicants}<span class="of"> / ${ph.applicantCap}명</span></b><span>신청 인원 / 정원</span></div>
+      <div><b>${ph.formingTeams}팀</b><span>팀 구성 중(4명 모집 중)</span></div>
       <div><b>${state.big}</b><span>${state.small}</span></div>
     </div>
 

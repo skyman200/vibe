@@ -76,9 +76,24 @@ function Loading({ error, retry }) {
   </div>`;
 }
 
+/**
+ * 배포본 index.html 에 들어 있는 설정(tools/build-pages.mjs 가 올릴 때 넣는다). 이것으로 첫 화면을 곧바로 그리고
+ * (미리 그려 둔 안내 화면과 똑같이 그려져 화면이 바뀌지 않는다), 이어서 받은 최신 설정으로 바꾼다. 로컬 개발에는 없다.
+ */
+function bootConfig() {
+  const el = document.getElementById('boot-config');
+  if (!el) return null;
+  try {
+    const c = JSON.parse(el.textContent);
+    return c && c.ok ? c : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function App() {
   const route = useRoute();
-  const [config, setConfig] = useState(null);
+  const [config, setConfig] = useState(bootConfig);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
 
@@ -149,4 +164,5 @@ if (window.top !== window.self) {
   document.getElementById('app').textContent = '이 화면은 다른 사이트 안에서 열 수 없습니다.';
 } else {
   render(html`<${App} />`, document.getElementById('app'));
+  document.documentElement.classList.remove('deep');
 }

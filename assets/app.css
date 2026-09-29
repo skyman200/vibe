@@ -209,12 +209,11 @@ button { font: inherit; }
 .poster h1 .red { color: var(--red); }
 .poster .lede { font-size: 17px; color: var(--ink-2); max-width: 36ch; margin-bottom: 26px; }
 
-/* 첫 화면 움직임: 제목 두 줄만 짧게 올라온다. 나머지(소개·버튼·행사 정보)는 기다림 없이 처음부터 보인다.
-   프롬프트 타이핑·빨간 띠는 계속 움직인다(동작 줄이기 설정이면 모두 멈춤). */
-.poster h1 .line { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
-.poster h1 .line > span { display: inline-block; animation: rise .6s cubic-bezier(.19, 1, .22, 1) both; }
-.poster h1 .line + .line > span { animation-delay: .06s; }
-@keyframes rise { from { transform: translateY(108%); } to { transform: none; } }
+/* 안내가 아닌 화면(초대 링크 등)으로 바로 들어왔을 때: 미리 그려 둔 안내 화면을 앱이 그릴 때까지 숨긴다(index.html). */
+.deep #app { visibility: hidden; }
+
+/* 첫 화면은 처음부터 완성된 모습으로 보인다(등장 효과 없음 — 기다리는 것처럼 보이지 않게).
+   움직이는 것은 프롬프트 타이핑(첫 문장은 처음부터 다 보임)과 빨간 띠뿐이다(동작 줄이기 설정이면 멈춤). */
 .skel { display: inline-block; height: .9em; vertical-align: -0.08em; border-radius: 4px; background: var(--line); max-width: 100%; }
 .facts small .skel { height: .8em; }
 
