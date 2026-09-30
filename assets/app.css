@@ -213,6 +213,12 @@ button { font: inherit; }
 .deep #app { visibility: hidden; }
 .bootfail { position: relative; z-index: 80; margin: 16px; padding: 14px 16px; border: 1.5px solid var(--red); border-radius: 8px; background: #fff; color: var(--ink); font-size: 15px; }
 .bootfail a { color: var(--red); font-weight: 700; }
+/* 새 버전 안내(입력 중이라 바로 적용하지 않을 때) */
+.updatebar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 90; width: min(640px, calc(100% - 24px));
+  display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 18px; border-radius: 10px; background: var(--ink); color: #fff;
+  font-size: 15px; line-height: 1.45; box-shadow: 0 8px 28px rgba(0, 0, 0, .22); }
+.updatebar span { flex: 1; }
+.updatebar button { flex: none; border: 0; border-radius: 8px; background: var(--red); color: #fff; font: 700 15px/1 var(--sans); padding: 11px 14px; cursor: pointer; }
 
 /* 첫 화면은 처음부터 완성된 모습으로 보인다(등장 효과 없음 — 기다리는 것처럼 보이지 않게).
    움직이는 것은 프롬프트 타이핑(첫 문장은 처음부터 다 보임)과 빨간 띠뿐이다(동작 줄이기 설정이면 멈춤). */
