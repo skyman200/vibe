@@ -767,6 +767,41 @@ function PurgeResult({ res }) {
   </div>`;
 }
 
+/** 새 참가 신청 디스코드 알림: 채널 웹후크 주소를 저장·확인·끈다. 주소 원문은 서버가 돌려주지 않는다(가린 값만). */
+function DiscordPanel({ discord, reload }) {
+  const { notify } = useApp();
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState('');
+  const [busy, run] = useBusy();
+  const act = (payload, done) => run(async () => {
+    try {
+      await api('adminDiscord', { token: token(), ...payload });
+      setError('');
+      setUrl('');
+      notify(done);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  });
+  const last = discord.last;
+  return html`<div class="stack">
+    <p class="small muted" style="margin:0">팀장이 신청서를 제출(접수 완료)하면 디스코드 채널로 바로 알립니다. 참가현황에 공개되는 팀명·대표 학과·참가 주제·프로젝트명과 접수 수만 보내고, 팀원의 학번·이름·연락처는 보내지 않습니다. 디스코드가 잠시 안 되면 5분 안에 다시 보냅니다.</p>
+    <p style="margin:0"><b>${discord.on ? '켜짐' : '꺼짐'}</b>${discord.on ? html` <span class="small muted mono">${discord.hint}</span>` : ''}
+      ${last ? html` · <span class=${`small ${last.ok ? 'muted' : 'err'}`}>마지막 알림 ${fmtWhen(last.at)} ${last.ok ? '보냄' : `실패 — ${last.error}`}</span>` : ''}
+      ${discord.waiting ? html` · <span class="small err">다시 보낼 알림 ${discord.waiting}건</span>` : ''}</p>
+    <${Field} label=${discord.on ? '다른 채널로 바꾸기(웹후크 주소)' : '웹후크 주소'} id="set-discord" error=${error}
+      hint="디스코드 채널 설정 → 연동 → 웹후크 → [웹후크 URL 복사]로 받은 주소">
+      <input id="set-discord" class="input mono" type="password" autocomplete="off" placeholder="https://discord.com/api/webhooks/…" value=${url} onInput=${(e) => setUrl(e.target.value.trim())} />
+    <//>
+    <div class="btn-row">
+      <button type="button" class="btn btn-sm btn-primary" disabled=${busy || !url} onClick=${() => act({ url }, '디스코드 알림을 켰습니다. [확인 메시지 보내기]로 채널을 확인하세요.')}>저장</button>
+      <button type="button" class="btn btn-sm" disabled=${busy || !discord.on} onClick=${() => act({ test: true }, '확인 메시지를 보냈습니다. 디스코드 채널을 확인하세요.')}>확인 메시지 보내기</button>
+      <button type="button" class="btn btn-sm btn-ghost" disabled=${busy || !discord.on} onClick=${() => { if (confirm('디스코드 알림을 끌까요?')) act({ clear: true }, '디스코드 알림을 껐습니다.'); }}>끄기</button>
+    </div>
+  </div>`;
+}
+
 function SettingsTab({ data, reload, onCodeChanged }) {
   const { notify, reloadConfig } = useApp();
   const s = data.settings;
@@ -856,6 +891,11 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       <button class="btn btn-primary btn-lg" type="submit" disabled=${busy}>설정 저장</button>
       ${errors._form ? html`<span class="form-error">${errors._form}</span>` : html`<span class="small muted">저장한 값은 곧바로 모든 화면에 반영됩니다.</span>`}
     </div>
+
+    <fieldset class="fs">
+      <div class="fs-h"><h2>디스코드 알림</h2><p>새 참가 신청이 접수되면 알림</p></div>
+      <${DiscordPanel} discord=${data.discord} reload=${reload} />
+    </fieldset>
 
     <fieldset class="fs">
       <div class="fs-h"><h2>보안</h2></div>
