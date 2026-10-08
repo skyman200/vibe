@@ -15,10 +15,12 @@ export const BUILD = (/\/v\/([0-9a-f]{12})\/assets\//.exec(import.meta.url) || [
  * 화면을 그리다 난 오류(와 요청에 엉뚱한 답이 온 일, where 'api')를 이 탭(sessionStorage 'vh.errors', 최근 5개)에 남기고 운영 로그(LOG_URL → 디스코드)로 보낸다.
  * 무엇이 깨졌는지 알기 위한 기술 정보만 보낸다: 화면 이름(주소의 첫 칸 — 초대 코드 같은 인자는 뺀다), 배포 버전,
  * 오류 이름·메시지·스택 앞부분, 브라우저 정보. 입력값·학번·이름 같은 개인정보는 보내지 않는다(scrub.js 가 이메일·전화번호·
- * 긴 숫자열을 지운다). 같은 오류는 한 번만, 화면을 한 번 열 때마다 5건까지 보낸다.
+ * 긴 숫자열을 지운다). 같은 오류는 한 번만, 화면을 한 번 열 때마다 화면 오류 5건·엉뚱한 응답 4건까지 보낸다(따로 세어
+ * 응답 보고가 화면 오류 보고를 밀어내지 않게).
  */
 const ERROR_KEY = 'vh.errors';
 const sentErrors = new Set();
+const reportBudget = { api: 4, view: 5 };
 
 export function reportError(err, where) {
   const e = err instanceof Error ? err : new Error(typeof err === 'string' ? err : '알 수 없는 오류');
@@ -39,8 +41,10 @@ export function reportError(err, where) {
     st.setItem(ERROR_KEY, JSON.stringify(list.concat(entry).slice(-5)));
   } catch (x) { /* 저장소가 없으면 보내기만 한다 */ }
   const sig = [entry.where, entry.route, entry.name, entry.message].join('|');
-  if (sentErrors.has(sig) || sentErrors.size >= 5) return;
+  const kind = where === 'api' ? 'api' : 'view';
+  if (sentErrors.has(sig) || reportBudget[kind] <= 0) return;
   sentErrors.add(sig);
+  reportBudget[kind] -= 1;
   const body = JSON.stringify(entry);
   try {
     if (navigator.sendBeacon && navigator.sendBeacon(LOG_URL, body)) return;

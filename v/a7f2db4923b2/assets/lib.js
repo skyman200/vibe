@@ -2,10 +2,57 @@
 import {
   html, render, useState, useEffect, useRef, useCallback, createContext, useContext, useErrorBoundary,
 } from './vendor/preact-htm.js';
-import { API_URL, PUBLIC_URL } from './config.js';
-import { MAX_ATTEMPTS, FIRST_WAIT_MS, retryable, backoff } from './retry.js';
+import { API_URL, PUBLIC_URL, LOG_URL } from './config.js';
+import { MAX_ATTEMPTS, FIRST_WAIT_MS, retryable, backoff, answers } from './retry.js';
+import { scrub } from './scrub.js';
 
 export { html, render, useState, useEffect, useRef, useCallback, createContext, useContext, useErrorBoundary };
+
+/** 배포 버전: 배포본은 화면 스크립트를 v/<버전>/assets/ 에서 받는다(tools/build-pages.mjs). 로컬 개발은 ''. */
+export const BUILD = (/\/v\/([0-9a-f]{12})\/assets\//.exec(import.meta.url) || [])[1] || '';
+
+/* ── 화면 오류 기록 ──
+ * 화면을 그리다 난 오류(와 요청에 엉뚱한 답이 온 일, where 'api')를 이 탭(sessionStorage 'vh.errors', 최근 5개)에 남기고 운영 로그(LOG_URL → 디스코드)로 보낸다.
+ * 무엇이 깨졌는지 알기 위한 기술 정보만 보낸다: 화면 이름(주소의 첫 칸 — 초대 코드 같은 인자는 뺀다), 배포 버전,
+ * 오류 이름·메시지·스택 앞부분, 브라우저 정보. 입력값·학번·이름 같은 개인정보는 보내지 않는다(scrub.js 가 이메일·전화번호·
+ * 긴 숫자열을 지운다). 같은 오류는 한 번만, 화면을 한 번 열 때마다 화면 오류 5건·엉뚱한 응답 4건까지 보낸다(따로 세어
+ * 응답 보고가 화면 오류 보고를 밀어내지 않게).
+ */
+const ERROR_KEY = 'vh.errors';
+const sentErrors = new Set();
+const reportBudget = { api: 4, view: 5 };
+
+export function reportError(err, where) {
+  const e = err instanceof Error ? err : new Error(typeof err === 'string' ? err : '알 수 없는 오류');
+  console.error('화면 오류', where, err);
+  const entry = {
+    at: new Date().toISOString(),
+    where,
+    route: /^[\w-]{0,20}$/.test(parseHash().name) ? parseHash().name : 'other',
+    build: BUILD || 'dev',
+    name: scrub(e.name, 60),
+    message: scrub(e.message, 300),
+    stack: scrub(e.stack, 1500),
+    ua: scrub(navigator.userAgent, 300),
+  };
+  try {
+    const st = window.sessionStorage;
+    const list = JSON.parse(st.getItem(ERROR_KEY) || '[]');
+    st.setItem(ERROR_KEY, JSON.stringify(list.concat(entry).slice(-5)));
+  } catch (x) { /* 저장소가 없으면 보내기만 한다 */ }
+  const sig = [entry.where, entry.route, entry.name, entry.message].join('|');
+  const kind = where === 'api' ? 'api' : 'view';
+  if (sentErrors.has(sig) || reportBudget[kind] <= 0) return;
+  sentErrors.add(sig);
+  reportBudget[kind] -= 1;
+  const body = JSON.stringify(entry);
+  try {
+    if (navigator.sendBeacon && navigator.sendBeacon(LOG_URL, body)) return;
+  } catch (x) { /* 아래 fetch 로 */ }
+  try {
+    fetch(LOG_URL, { method: 'POST', body, keepalive: true, mode: 'no-cors' }).catch(() => {});
+  } catch (x) { /* 보고는 화면을 막지 않는다 */ }
+}
 
 export class ApiFailure extends Error {
   constructor(message, code, field) {
@@ -43,8 +90,12 @@ async function fetchJson(url, opts, ms) {
 const PUBLIC_TIMEOUT_MS = 8000;
 const POST_TIMEOUT_MS = 60000;
 
+/**
+ * 쓰기·로그인·관리 요청(공개 읽기가 전달망에서 답을 못 받았을 때도). 서버는 본문의 action 만 쓴다. 주소에도 요청 이름을
+ * 붙이는 것은 앞단에서 본문 없는 GET 으로 바뀌어 doGet 에 닿으면 실행 기록에 어느 요청이었는지 남기기 위해서다(gas/Api.js doGet).
+ */
 async function post(action, payload) {
-  return fetchJson(API_URL, {
+  return fetchJson(`${API_URL}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action, ...payload }),
@@ -52,8 +103,8 @@ async function post(action, payload) {
 }
 
 /**
- * 공개 읽기: CDN 을 먼저 쓰고, CDN(전달망)이 응답하지 못하면 Apps Script 에 직접 묻는다
- * (전달망 장애로 사이트가 아예 열리지 않는 일이 없도록).
+ * 공개 읽기: CDN 을 먼저 쓰고, CDN(전달망)의 답이 Apps Script 가 이 요청에 한 답이 아니면(연결 실패·502·
+ * 다른 답) Apps Script 에 직접 묻는다 — 전달망 장애로 사이트가 열리지 않거나 깨지는 일이 없도록.
  */
 async function getPublic(action) {
   let data = null;
@@ -63,12 +114,22 @@ async function getPublic(action) {
   } catch (e) {
     // 연결이 안 되거나, 제한 시간을 넘기거나, JSON 이 아닌 응답 → Apps Script 로 직접 묻는다.
   }
-  if (data && (data.ok || data.code !== 'NETWORK')) return data;
+  if (data && data.action === action) return data;
   return post(action, {});
 }
 
 async function requestOnce(action, payload) {
   const data = PUBLIC_ACTIONS.has(action) ? await getPublic(action) : await post(action, payload);
+  // 이 요청의 답이 아니면(doGet 의 BUSY 포함) 받지 못한 것(NETWORK)으로 다룬다 — 두 번 해도 안전한 요청만 다시 보내고,
+  // 쓰기는 ambiguous 로 호출 측이 상태를 다시 확인한다. 그대로 쓰면 화면은 빈 답으로 깨지고 쓰기는 저장된 줄 안다.
+  if (!answers(data, action)) {
+    // doGet 의 답이면 그가 받은 주소 인자(query)를 붙인다 — POST 가 어떻게 GET 으로 바뀌었는지 보는 단서(gas/Api.js doGet).
+    const query = typeof data.query === 'string' ? ` · 주소 인자 ${data.query.slice(0, 120) || '(없음)'}` : '';
+    const stray = new Error(`${action} 요청에 다른 답: ${Object.keys(data).sort().join(',').slice(0, 120)}${query}`);
+    stray.name = 'StrayResponse';
+    reportError(stray, 'api');
+    throw new ApiFailure(NETWORK_MESSAGE, 'NETWORK');
+  }
   if (!data.ok) throw new ApiFailure(data.error || '요청을 처리하지 못했습니다.', data.code, data.field);
   return data;
 }

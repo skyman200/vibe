@@ -1,6 +1,6 @@
 // 앱 껍데기: 머리·꼬리, 라우팅, 설정(config) 불러오기, 알림(toast).
 import {
-  html, render, useState, useEffect, useCallback, useErrorBoundary, useRoute, api, AppCtx,
+  html, render, useState, useEffect, useRef, useCallback, useErrorBoundary, useRoute, api, AppCtx, ApiFailure, parseHash, reportError, BUILD,
 } from './lib.js';
 import { HomeView } from './views/home.js';
 import { ApplyView, JoinView } from './views/apply.js';
@@ -9,7 +9,7 @@ import { MeView } from './views/me.js';
 import { JudgeView } from './views/judge.js';
 import { AdminView } from './views/admin.js';
 import { PrivacyView } from './views/privacy.js';
-import { startUpdates } from './update.js';
+import { startUpdates, updateWaiting } from './update.js';
 
 const NAV = [
   ['home', '#/', '안내'],
@@ -72,13 +72,37 @@ function Toast({ toast }) {
 /** 캐시를 거치지 않고 지금 화면을 다시 부르는 주소(?r= 는 앱이 뜨면 지운다). */
 const freshHref = () => `${location.pathname}?r=${Date.now()}${location.hash}`;
 
-/** 화면을 그리다 오류가 나면 멈춘 화면 대신 알리고 다시 불러오게 한다(경로가 바뀌면 다시 시도). */
-function Guard({ children }) {
-  const [err] = useErrorBoundary((e) => console.error('화면 그리기 실패', e));
-  if (err) {
-    return html`<div class="wrap page"><div class="notice bad" role="alert"><b>화면을 그리지 못했습니다.</b> 새 버전이 올라가는 중일 수 있습니다. <a href=${freshHref()}>다시 불러오기</a></div></div>`;
-  }
-  return children;
+/** 저절로 다시 그려도 다시 난 오류: 오류 줄과 배포 버전을 보여 준다(화면 캐처만으로 원인을 찾을 수 있게). */
+function RenderFailed({ err, retry }) {
+  const line = `${(err && err.name) || 'Error'}: ${String(err && err.message !== undefined ? err.message : err).slice(0, 160)}`;
+  return html`<div class="wrap page"><div class="notice bad" role="alert">
+    <b>화면을 그리는 중 오류가 났습니다.</b>${updateWaiting() ? ' 새 버전이 올라와 있습니다. 새로 고치면 새 버전으로 열립니다.' : ''}${' '}
+    <button class="link-btn" type="button" onClick=${retry}>다시 시도</button> · <a href=${freshHref()}>새로 고침</a>
+    <div class="small" style="margin-top:8px">계속되면 이 화면을 캡처해 문의처로 보내 주세요.</div>
+    <div class="small mono">${line} · ${BUILD || 'dev'}</div>
+  </div></div>`;
+}
+
+/**
+ * 화면을 그리다(또는 화면의 effect 에서) 난 오류를 받는다. 오류는 기록·보고하고(lib.js reportError) 처음 한 번은
+ * 저절로 다시 그린다 — 잠깐 생긴 오류는 사용자가 모르고 지나가게. 같은 화면에서 또 나면(30초마다 새로 고치는
+ * 참가현황처럼 되풀이되는 오류가 숨지 않게) 오류 내용과 함께 [다시 시도]·[새로 고침]을 보여 준다. 화면을 옮기면 다시
+ * 한 번 저절로 고친다(화면마다 새로 만들어진다). 다시 그려도 로그인(sessionStorage)과 설정은 그대로다.
+ * 새 버전 탓은 새 버전이 실제로 올라와 있을 때만 한다(화면 스크립트는 배포마다 따로인 v/<버전> 폴더에서 받아
+ * 한 화면 안에서 버전이 섞일 수 없다).
+ */
+function Boundary({ where, children }) {
+  const healed = useRef(false);
+  const [err, reset] = useErrorBoundary((e) => reportError(e, where));
+  const heal = !!err && !healed.current;
+  useEffect(() => {
+    if (!heal) return;
+    healed.current = true;
+    reset();
+  }, [err]);
+  if (!err) return children;
+  if (heal) return html`<div class="wrap page"><p class="muted">다시 그리는 중…</p></div>`;
+  return html`<${RenderFailed} err=${err} retry=${reset} />`;
 }
 
 function Loading({ error, retry }) {
@@ -166,18 +190,42 @@ function App() {
 
   return html`<${AppCtx.Provider} value=${{ config, reloadConfig: loadConfig, notify, route }}>
     <${Header} route=${route} />
-    <main id="main"><${Guard} key=${route.name}>${view}<//></main>
+    <main id="main"><${Boundary} key=${route.name} where="view">${view}<//></main>
     <${Footer} config=${config} />
     <${Toast} toast=${toast} />
   <//>`;
 }
 
+/**
+ * 화면 밖(이벤트 처리·비동기 작업)에서 난 이 사이트 스크립트의 오류도 기록한다. 확장 프로그램·앱 안 브라우저가 넣은
+ * 스크립트의 오류와, 서버 응답 실패(ApiFailure — 화면이 따로 알린다)는 뺀다.
+ */
+const OWN_SCRIPTS = new URL('.', import.meta.url).href;
+const ours = (text) => typeof text === 'string' && text.includes(OWN_SCRIPTS);
+window.addEventListener('error', (e) => {
+  if (ours(e.filename) || (e.error && ours(e.error.stack))) reportError(e.error || e.message, 'window');
+});
+window.addEventListener('unhandledrejection', (e) => {
+  if (e.reason && !(e.reason instanceof ApiFailure) && ours(e.reason.stack)) reportError(e.reason, 'promise');
+});
+
+/** index.html 이 주소만 보고 미리 그린 안내 화면을 숨기는(html.deep) 화면 — 그 스크립트의 목록과 같다(test/index-html.test.mjs). */
+const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy'];
+
 // 다른 사이트가 이 화면을 틀(iframe) 안에 넣어 클릭을 가로채지 못하게 한다(GitHub Pages 는 헤더를 못 붙이므로 스크립트로).
+const root = document.getElementById('app');
 if (window.top !== window.self) {
-  document.getElementById('app').textContent = '이 화면은 다른 사이트 안에서 열 수 없습니다.';
+  root.textContent = '이 화면은 다른 사이트 안에서 열 수 없습니다.';
 } else {
-  render(html`<${App} />`, document.getElementById('app'));
+  // 안내가 아닌 화면으로 바로 들어왔으면(초대 링크 등) 미리 그려 둔 안내 화면을 비우고 그린다 — 다른 화면이 안내 화면의
+  // 요소를 이어 쓰지 않게. html.deep 이 아니라 주소로 정한다(스크립트가 10초 넘게 늦으면 index.html 이 deep 을 뗀다).
+  if (DEEP_ROUTES.includes(parseHash().name)) root.textContent = '';
+  // 머리·꼬리·알림까지 포함해 앱 전체도 오류를 받는다(받는 곳이 없으면 그 뒤로 화면이 멈춘다).
+  render(html`<${Boundary} where="app"><${App} /><//>`, root);
   document.documentElement.classList.remove('deep');
+  // 10초 넘게 걸려 떴으면 index.html 이 띄운 '화면을 불러오지 못했습니다' 안내를 거둔다
+  const bootfail = document.querySelector('.bootfail');
+  if (bootfail) bootfail.remove();
   window.__vhBooted = true;
   startUpdates();   // 새 버전이 올라가면 열려 있는 화면도 바꾼다(update.js)
   // [다시 불러오기]가 붙인 ?r= 는 지운다(주소를 공유할 때 따라가지 않게)
