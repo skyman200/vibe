@@ -119,7 +119,9 @@ async function requestOnce(action, payload) {
   // 이 요청의 답이 아니면(doGet 의 BUSY 포함) 받지 못한 것(NETWORK)으로 다룬다 — 두 번 해도 안전한 요청만 다시 보내고,
   // 쓰기는 ambiguous 로 호출 측이 상태를 다시 확인한다. 그대로 쓰면 화면은 빈 답으로 깨지고 쓰기는 저장된 줄 안다.
   if (!answers(data, action)) {
-    const stray = new Error(`${action} 요청에 다른 답: ${Object.keys(data).sort().join(',').slice(0, 120)}`);
+    // doGet 의 답이면 그가 받은 주소 인자(query)를 붙인다 — POST 가 어떻게 GET 으로 바뀌었는지 보는 단서(gas/Api.js doGet).
+    const query = typeof data.query === 'string' ? ` · 주소 인자 ${data.query.slice(0, 120) || '(없음)'}` : '';
+    const stray = new Error(`${action} 요청에 다른 답: ${Object.keys(data).sort().join(',').slice(0, 120)}${query}`);
     stray.name = 'StrayResponse';
     reportError(stray, 'api');
     throw new ApiFailure(NETWORK_MESSAGE, 'NETWORK');

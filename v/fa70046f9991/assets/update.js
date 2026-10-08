@@ -5,9 +5,8 @@
 // - 다르면 곧바로 캐시를 거치지 않는 주소로 다시 연다(보던 화면 그대로, 관리자 로그인도 유지).
 //   단, 입력 중인 내용이 있거나 한 번만 보이는 코드(새 관리자 코드·임시 비밀번호·심사위원 코드)가 떠 있으면 잃지 않도록
 //   아래에 안내만 띄우고, 저장하거나 다른 화면으로 옮기는 순간 적용한다([지금 적용]으로 바로 적용할 수도 있다).
-import { session } from './lib.js';
+import { session, BUILD } from './lib.js';
 
-const BUILD = (/\/v\/([0-9a-f]{12})\/assets\//.exec(import.meta.url) || [])[1] || '';
 const VERSION_URL = new URL('../../../version.json', import.meta.url).href;
 const TRIED = 'vh.updateTried';
 const CHECK_EVERY_MS = 60000;
@@ -101,4 +100,7 @@ export function startUpdates() {
   check();
 }
 
-export const buildId = BUILD;
+/** 새 버전이 올라와 있는데 아직 적용하지 않았나(화면 오류 안내가 새 버전 탓을 할 때는 이것이 참일 때뿐이다). */
+export function updateWaiting() {
+  return !!target;
+}
