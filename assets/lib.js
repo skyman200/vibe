@@ -166,7 +166,7 @@ export async function api(action, payload = {}) {
 /**
  * 역할별 로그인 토큰. 같은 주소(skyman200.github.io)를 다른 페이지들과 함께 쓰므로 오래 남기지 않는다.
  * - admin: 메모리에만(새로 고치면 다시 로그인) — 개인정보 원문을 볼 수 있는 토큰이라서
- * - member·judge: 이 탭(sessionStorage)에만 — 탭을 닫으면 사라진다
+ * - member·judge·teach(강사): 이 탭(sessionStorage)에만 — 탭을 닫으면 사라진다
  */
 const memoryTokens = {};
 function tabStore() {
