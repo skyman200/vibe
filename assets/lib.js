@@ -86,8 +86,12 @@ async function fetchJson(url, opts, ms) {
 const PUBLIC_TIMEOUT_MS = 8000;
 const POST_TIMEOUT_MS = 60000;
 
+/**
+ * 쓰기·로그인·관리 요청(공개 읽기가 전달망에서 답을 못 받았을 때도). 서버는 본문의 action 만 쓴다. 주소에도 요청 이름을
+ * 붙이는 것은 앞단에서 본문 없는 GET 으로 바뀌어 doGet 에 닿으면 실행 기록에 어느 요청이었는지 남기기 위해서다(gas/Api.js doGet).
+ */
 async function post(action, payload) {
-  return fetchJson(API_URL, {
+  return fetchJson(`${API_URL}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action, ...payload }),
@@ -112,7 +116,8 @@ async function getPublic(action) {
 
 async function requestOnce(action, payload) {
   const data = PUBLIC_ACTIONS.has(action) ? await getPublic(action) : await post(action, payload);
-  // 이 요청의 답이 아니면 받지 못한 것으로 다룬다(다시 시도). 그대로 쓰면 화면은 빈 답으로 깨지고 쓰기는 저장된 줄 안다.
+  // 이 요청의 답이 아니면(doGet 의 BUSY 포함) 받지 못한 것(NETWORK)으로 다룬다 — 두 번 해도 안전한 요청만 다시 보내고,
+  // 쓰기는 ambiguous 로 호출 측이 상태를 다시 확인한다. 그대로 쓰면 화면은 빈 답으로 깨지고 쓰기는 저장된 줄 안다.
   if (!answers(data, action)) {
     const stray = new Error(`${action} 요청에 다른 답: ${Object.keys(data).sort().join(',').slice(0, 120)}`);
     stray.name = 'StrayResponse';

@@ -145,6 +145,7 @@ function Hero({ config }) {
         <dt>본선</dt><dd>${ph ? `${ph.selectTarget}팀 · 진리관 컨벤션홀` : html`<${Skel} w="9em" />`}<small>${ph ? `신청은 ${ph.applicantCap}명(${ph.teamCap}팀)까지 받습니다. ${ph.selectTarget}팀을 넘으면 의무 교육 후 평가로 본선 팀을 선발합니다` : html`<${Skel} w="16em" />`}</small></dd>
         <dt>접수</dt><dd class="num">${e ? `${fmtWhen(e.applyStart)} ~ ${fmtWhen(e.applyEnd)}` : html`<${Skel} w="13em" />`}</dd>
         <dt>제공</dt><dd>팀당 Claude Code 또는 Codex</dd>
+        <dt>출석</dt><dd>대회 참가 시 출석 인정<small>대회에 참가하는 날의 수업은 출석으로 인정됩니다</small></dd>
       </dl>
     </section>`;
 }
@@ -168,6 +169,7 @@ export function HomeView() {
       '재학생 4인 1조',
       `본선 진출 ${ph.selectTarget}팀`,
       '팀당 Claude Code · Codex 제공',
+      '대회 참가 시 출석 인정',
       `신청 ${fmtWhen(e.applyEnd)} 마감`,
     ]} />
 
@@ -238,7 +240,7 @@ export function HomeView() {
         </tr>`)}</tbody>
         <tfoot><tr><td>합계</td><td class="num">${awardTeams}팀</td><td class="num">${won(awardTotal)}</td></tr></tfoot>
       </table>
-      <p class="small muted" style="margin-top:10px">상금은 팀 단위로 지급합니다. 교육을 이수하고 결과물을 제출한 참가자에게 디지털 배지를 발급합니다.</p>
+      <p class="small muted" style="margin-top:10px">상금은 팀 단위로 지급합니다. 대회에 참가하는 날의 수업은 출석으로 인정됩니다. 교육을 이수하고 결과물을 제출한 참가자에게 디지털 배지를 발급합니다.</p>
     <//>
 
     <${Sec} n="5" title="결과물 제출" id="submit">
