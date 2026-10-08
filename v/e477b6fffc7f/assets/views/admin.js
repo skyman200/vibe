@@ -1,4 +1,4 @@
-// 관리자: 개인정보 원문을 보는 유일한 화면. 칸반(끌어서 상태 변경)·참가자·심사·설정·엑셀.
+// 관리자: 개인정보 원문을 보는 유일한 화면. 칸반(끌어서 상태 변경)·참가자·예선(admin-prelim.js)·심사·설정·엑셀.
 import {
   html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, fileToBase64, STATUS_LABEL, josaRo,
 } from '../lib.js';
@@ -6,6 +6,7 @@ import {
   Field, DeptSelect, FormTemplates, LoadFailed, Modal, Slots, Status, useBusy, serverErrors, focusFirstError,
 } from '../ui.js';
 import { TeamFields, checkTeam } from './apply.js';
+import { PrelimTab } from './admin-prelim.js';
 
 const COLUMNS = [
   ['draft', '팀 구성 중'],
@@ -999,10 +1000,11 @@ export function AdminView() {
       </div>
     </div>
     <div class="tabs" role="tablist">
-      ${[['kanban', '칸반'], ['people', '참가자'], ['judging', '심사'], ['settings', '설정']].map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
+      ${[['kanban', '칸반'], ['people', '참가자'], ['prelim', '예선'], ['judging', '심사'], ['settings', '설정']].map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
     </div>
     ${tab === 'kanban' ? html`<${KanbanTab} data=${data} reload=${load} openTeam=${setOpenId} />` : ''}
     ${tab === 'people' ? html`<${PeopleTab} data=${data} openTeam=${setOpenId} />` : ''}
+    ${tab === 'prelim' ? html`<${PrelimTab} reload=${load} />` : ''}
     ${tab === 'judging' ? html`<${JudgingTab} data=${data} reload=${load} openTeam=${setOpenId} />` : ''}
     ${tab === 'settings' ? html`<${SettingsTab} key=${JSON.stringify(data.settings)} data=${data} reload=${load} onCodeChanged=${() => notify('관리자 코드를 바꿨습니다.')} />` : ''}
     ${team ? html`<${TeamDrawer} key=${team.id + team.updatedAt} team=${team} data=${data} reload=${load} onClose=${() => setOpenId('')} />` : ''}

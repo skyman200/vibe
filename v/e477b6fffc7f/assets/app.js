@@ -1,6 +1,6 @@
 // 앱 껍데기: 머리·꼬리, 라우팅, 설정(config) 불러오기, 알림(toast).
 import {
-  html, render, useState, useEffect, useRef, useCallback, useErrorBoundary, useRoute, api, AppCtx, ApiFailure, reportError, BUILD,
+  html, render, useState, useEffect, useRef, useCallback, useErrorBoundary, useRoute, api, AppCtx, ApiFailure, parseHash, reportError, BUILD,
 } from './lib.js';
 import { HomeView } from './views/home.js';
 import { ApplyView, JoinView } from './views/apply.js';
@@ -209,17 +209,23 @@ window.addEventListener('unhandledrejection', (e) => {
   if (e.reason && !(e.reason instanceof ApiFailure) && ours(e.reason.stack)) reportError(e.reason, 'promise');
 });
 
+/** index.html 이 주소만 보고 미리 그린 안내 화면을 숨기는(html.deep) 화면 — 그 스크립트의 목록과 같다(test/index-html.test.mjs). */
+const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy'];
+
 // 다른 사이트가 이 화면을 틀(iframe) 안에 넣어 클릭을 가로채지 못하게 한다(GitHub Pages 는 헤더를 못 붙이므로 스크립트로).
 const root = document.getElementById('app');
 if (window.top !== window.self) {
   root.textContent = '이 화면은 다른 사이트 안에서 열 수 없습니다.';
 } else {
-  // 안내가 아닌 화면으로 바로 들어왔으면(초대 링크 등 — index.html 이 html.deep 으로 미리 그려 둔 안내 화면을
-  // 숨겨 둔 경우) 그 안내 화면을 비우고 그린다. 다른 화면이 안내 화면의 요소를 이어 쓰지 않게.
-  if (document.documentElement.classList.contains('deep')) root.textContent = '';
+  // 안내가 아닌 화면으로 바로 들어왔으면(초대 링크 등) 미리 그려 둔 안내 화면을 비우고 그린다 — 다른 화면이 안내 화면의
+  // 요소를 이어 쓰지 않게. html.deep 이 아니라 주소로 정한다(스크립트가 10초 넘게 늦으면 index.html 이 deep 을 뗀다).
+  if (DEEP_ROUTES.includes(parseHash().name)) root.textContent = '';
   // 머리·꼬리·알림까지 포함해 앱 전체도 오류를 받는다(받는 곳이 없으면 그 뒤로 화면이 멈춘다).
   render(html`<${Boundary} where="app"><${App} /><//>`, root);
   document.documentElement.classList.remove('deep');
+  // 10초 넘게 걸려 떴으면 index.html 이 띄운 '화면을 불러오지 못했습니다' 안내를 거둔다
+  const bootfail = document.querySelector('.bootfail');
+  if (bootfail) bootfail.remove();
   window.__vhBooted = true;
   startUpdates();   // 새 버전이 올라가면 열려 있는 화면도 바꾼다(update.js)
   // [다시 불러오기]가 붙인 ?r= 는 지운다(주소를 공유할 때 따라가지 않게)

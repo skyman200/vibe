@@ -89,6 +89,8 @@ async function fetchJson(url, opts, ms) {
 /** 공개 읽기 제한 시간(전달망은 보통 0.1~1초). 쓰기·로그인은 서버 처리(신청서 파일 만들기 포함)가 길 수 있어 넉넉히. */
 const PUBLIC_TIMEOUT_MS = 8000;
 const POST_TIMEOUT_MS = 60000;
+/** 오래 걸릴 수 있는 쓰기: 예선 제출은 GitHub 에서 저장소 압축 파일(최대 30MB)을 받아 드라이브에 보관한 뒤 답한다. */
+const SLOW_POST_MS = { prelimSubmit: 240000 };
 
 /**
  * 쓰기·로그인·관리 요청(공개 읽기가 전달망에서 답을 못 받았을 때도). 서버는 본문의 action 만 쓴다. 주소에도 요청 이름을
@@ -99,7 +101,7 @@ async function post(action, payload) {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action, ...payload }),
-  }, POST_TIMEOUT_MS);
+  }, SLOW_POST_MS[action] || POST_TIMEOUT_MS);
 }
 
 /**

@@ -1,4 +1,4 @@
-// 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 결과물(GitHub) 제출, 본인 정보 정정·철회.
+// 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 예선(prelim.js), 결과물(GitHub) 제출, 본인 정보 정정·철회.
 import {
   html, useState, useEffect, useApp, api, session, digits, fmtWhen, STATUS_LABEL,
 } from '../lib.js';
@@ -6,6 +6,7 @@ import {
   Field, LoadFailed, Modal, Slots, Status, Veil, MemberFields, useBusy, checkMember, serverErrors, focusFirstError,
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
+import { PrelimPanel } from './prelim.js';
 
 const CHECK_LABEL = { ok: '확인 완료', warn: '확인 필요', missing: '찾을 수 없음', error: '점검 실패' };
 const CHECK_TONE = { ok: 'ok', warn: 'warn', missing: 'bad', error: 'bad' };
@@ -468,6 +469,7 @@ export function MeView() {
     <div class="two-col">
       <div class="stack">
         <${StatusNotice} view=${view} config=${config} />
+        <${PrelimPanel} view=${view} onView=${setView} />
         ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} onRotate=${rotateInvite} />` : ''}
         <${SubmitPanel} view=${view} onView=${setView} />
         <${RepoPanel} view=${view} onView=${setView} config=${config} />
