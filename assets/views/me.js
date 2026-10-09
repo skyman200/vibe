@@ -72,7 +72,10 @@ function StatusNotice({ view, config }) {
   if (t.status === 'selected') {
     return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>본선 진출 팀입니다.</b> ${config.selection.finals} ${config.training.notice}${refill}</div>`;
   }
-  if (t.status === 'waitlist') return html`<div class="notice warn"><b>예비 팀입니다.</b> 본선 진출 팀에 결원이 생기면 차례로 연락드립니다.</div>`;
+  if (t.status === 'waitlist') {
+    const no = view.prelim && view.prelim.result ? view.prelim.result.waitNo : 0;
+    return html`<div class="notice warn"><b>예비${no ? ` ${no}번` : ''} 팀입니다.</b> 본선 진출 팀에 결원이 생기면 ${no ? '순번대로' : '차례로'} 연락드립니다.</div>`;
+  }
   return html`<div class="notice"><b>이번 본선에는 진출하지 못했습니다.</b> 관심 가져 주셔서 고맙습니다.</div>`;
 }
 

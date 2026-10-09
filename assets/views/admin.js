@@ -1,6 +1,6 @@
 // 관리자: 개인정보 원문을 보는 유일한 화면. 칸반(끌어서 상태 변경)·참가자·예선(admin-prelim.js)·심사·설정·엑셀.
 import {
-  html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, fileToBase64, STATUS_LABEL, josaRo,
+  html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, fileToBase64, STATUS_LABEL, josaRo, saveFile,
 } from '../lib.js';
 import {
   Field, DeptSelect, FormTemplates, LoadFailed, Modal, Slots, Status, useBusy, serverErrors, focusFirstError,
@@ -159,14 +159,7 @@ function saveBase64({ name, mime, data }) {
   const bin = atob(data);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const url = URL.createObjectURL(new Blob([bytes], { type: mime || 'application/octet-stream' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  saveFile(name, new Blob([bytes], { type: mime || 'application/octet-stream' }));
 }
 
 /** 관리자가 입력하는 참가자 칸(서면 신청·팀원 추가·정정). prefix: 서버 오류 칸 이름 앞부분(members.0. / member.) */
