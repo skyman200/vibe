@@ -1,4 +1,4 @@
-// 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 결과물(GitHub) 제출, 본인 정보 정정·철회.
+// 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 예선(prelim.js), 결과물(GitHub) 제출, 본인 정보 정정·철회.
 import {
   html, useState, useEffect, useApp, api, session, digits, fmtWhen, STATUS_LABEL,
 } from '../lib.js';
@@ -6,6 +6,7 @@ import {
   Field, LoadFailed, Modal, Slots, Status, Veil, MemberFields, useBusy, checkMember, serverErrors, focusFirstError,
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
+import { PrelimPanel } from './prelim.js';
 
 const CHECK_LABEL = { ok: '확인 완료', warn: '확인 필요', missing: '찾을 수 없음', error: '점검 실패' };
 const CHECK_TONE = { ok: 'ok', warn: 'warn', missing: 'bad', error: 'bad' };
@@ -71,7 +72,10 @@ function StatusNotice({ view, config }) {
   if (t.status === 'selected') {
     return html`<div class=${`notice ${refill ? 'warn' : 'ok'}`}><b>본선 진출 팀입니다.</b> ${config.selection.finals} ${config.training.notice}${refill}</div>`;
   }
-  if (t.status === 'waitlist') return html`<div class="notice warn"><b>예비 팀입니다.</b> 본선 진출 팀에 결원이 생기면 차례로 연락드립니다.</div>`;
+  if (t.status === 'waitlist') {
+    const no = view.prelim && view.prelim.result ? view.prelim.result.waitNo : 0;
+    return html`<div class="notice warn"><b>예비${no ? ` ${no}번` : ''} 팀입니다.</b> 본선 진출 팀에 결원이 생기면 ${no ? '순번대로' : '차례로'} 연락드립니다.</div>`;
+  }
   return html`<div class="notice"><b>이번 본선에는 진출하지 못했습니다.</b> 관심 가져 주셔서 고맙습니다.</div>`;
 }
 
@@ -468,6 +472,7 @@ export function MeView() {
     <div class="two-col">
       <div class="stack">
         <${StatusNotice} view=${view} config=${config} />
+        <${PrelimPanel} view=${view} onView=${setView} />
         ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} onRotate=${rotateInvite} />` : ''}
         <${SubmitPanel} view=${view} onView=${setView} />
         <${RepoPanel} view=${view} onView=${setView} config=${config} />
