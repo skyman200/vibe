@@ -19,9 +19,9 @@ function store() {
   try { return window.sessionStorage; } catch (e) { return null; }
 }
 
-/** 잃으면 안 되는 것이 화면에 있나: 저장 전 입력, 한 번만 보이는 코드, 방금 만든 초대 링크 */
+/** 잃으면 안 되는 것이 화면에 있나: 저장 전 입력, 한 번만 보이는 코드(강사 코드·세션 코드 창 포함), 방금 만든 초대 링크 */
 function busy() {
-  return dirty || !!document.querySelector('.codeline, .invite');
+  return dirty || !!document.querySelector('.codeline, .code-huge, .invite');
 }
 
 async function latest() {

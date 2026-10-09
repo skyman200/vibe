@@ -477,3 +477,95 @@ pre.prompt { white-space: pre-wrap; background: #fbfaf6; border: 1px solid var(-
 .storage .bar span { display: block; height: 100%; background: var(--ink); }
 .storage .bar span.high { background: var(--red); }
 .kv dd.key-text { font-size: 17px; font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-color: var(--red); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+
+/* ───────────── 강사 교육 진행 콘솔(views/teach*.js)과 교육 따라 하기(views/lesson.js) ───────────── */
+code.ic { font: 0.92em/1 var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+.con-sticky { position: sticky; top: 60px; z-index: 20; display: grid; gap: 8px; margin: 0 0 18px; }
+.con-clockbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin: 0; padding: 12px 16px; border-radius: 10px; background: var(--ink); color: #fff; }
+.con-clockbar b.num { font: 800 24px/1 var(--mono); }
+.con-clockbar .muted { color: #c9ccd3; }
+.con-clockbar .btn { background: #fff; color: var(--ink); border-color: #fff; }
+.con-clockbar .btn-ghost { background: transparent; color: #fff; border-color: #6b6f78; }
+.con-clockbar .btn-primary { background: var(--red); border-color: var(--red); color: #fff; }
+.con-more { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 0 14px; }
+.con-more summary { cursor: pointer; padding: 10px 0; font-weight: 600; }
+.con-more[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.con-more .con-acts { padding-bottom: 14px; }
+.con-steps { display: grid; gap: 14px; }
+.con-step { background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+.con-step.now { border: 2px solid var(--ink); }
+.con-step.done { background: var(--paper); }
+.con-step.done .con-h h2 { color: var(--muted); }
+.con-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; }
+.con-h h2 { margin: 2px 0 0; font-size: 19px; }
+.con-time { font-size: 13px; color: var(--muted); }
+.con-b { display: grid; gap: 14px; padding: 0 18px 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+.con-goal { margin: 0; }
+.con-acts { margin: 0; padding-left: 22px; display: grid; gap: 14px; }
+.con-act-t { line-height: 1.65; }
+.con-act-m { display: inline-block; min-width: 38px; margin-right: 8px; padding: 1px 7px; border-radius: 999px; background: var(--sunk); font-size: 12.5px; font-weight: 700; text-align: center; color: var(--ink-2); }
+blockquote.con-say { margin: 8px 0 4px; padding: 8px 12px; border-left: 3px solid var(--line-2); background: #fbfaf6; color: var(--ink-2); font-size: 14.5px; }
+blockquote.con-say::before { content: '할 말 '; font-weight: 700; color: var(--ink); }
+.con-teamdo { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px 14px; background: #fbfaf6; display: grid; gap: 8px; }
+.con-teamdo h3 { margin: 0; font-size: 15px; }
+.con-teamdo ol { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.con-tips { margin: 0; padding-left: 20px; color: var(--ink-2); font-size: 14px; display: grid; gap: 4px; }
+.con-ask { margin: 0; padding: 10px 14px; border-radius: 8px; background: var(--green-bg); color: #164f35; }
+.con-late { margin: 0; padding: 8px 14px; border-radius: 8px; background: var(--amber-bg); color: #5f3a00; }
+.con-preplist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.con-copyblock { border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.con-copyblock summary { cursor: pointer; padding: 10px 14px; }
+.con-copyblock pre.prompt { margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; }
+.con-scriptbox { display: grid; gap: 8px; margin-top: 8px; }
+.con-script { border: 1px solid var(--line-2); border-radius: 8px; padding: 14px 18px; background: #fffef9; font-size: 18px; line-height: 1.85; max-height: 62vh; overflow: auto; }
+.con-script.big { font-size: 26px; line-height: 1.9; max-height: 80vh; }
+.con-script p { margin: 0 0 14px; }
+.con-script-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.con-roster { display: grid; gap: 10px; }
+.con-rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.con-rteam { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; display: grid; gap: 4px; }
+.con-rteam.full { border-color: var(--green); background: var(--green-bg); }
+.con-rteam.part { border-color: #d9b46a; }
+.con-rteam-h { display: flex; align-items: baseline; gap: 8px; }
+.con-rteam-h b { flex: 1; word-break: break-all; }
+.con-rteam-m { display: grid; gap: 2px; }
+.con-structure td.b { font-weight: 700; }
+.con-words { display: grid; gap: 2px; }
+.con-startstat { border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px; background: #fff; }
+.con-startstat-h { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.con-closebox, .con-notes { display: grid; gap: 10px; }
+.textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 8px; font: inherit; background: #fff; resize: vertical; }
+.con-sessionpanel { margin-top: 6px; }
+.lesson-nav { position: sticky; top: 60px; z-index: 20; display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 0; background: var(--paper); border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.lesson-nav a { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-2); background: #fff; text-decoration: none; font-weight: 600; font-size: 14px; }
+.lesson-nav a[aria-current='true'] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.lessonstep { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 16px; display: grid; gap: 12px; }
+.lessonstep h2 { margin: 0; font-size: 20px; }
+.lessonstep ol { margin: 0; padding-left: 22px; display: grid; gap: 9px; }
+.con-roster-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.con-todo { margin: 0; padding: 0 18px 14px; }
+.con-pinned { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 20px; margin: 0; padding: 8px 18px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; }
+.con-pinned.empty { border-style: dashed; background: var(--amber-bg); color: #5f3a00; }
+.con-pinned-m { display: grid; gap: 2px; color: var(--ink-2); }
+.con-pinned-m b { color: var(--ink); font-size: 15px; }
+.code-pinned { font: 800 clamp(36px, 6vw, 68px)/1.1 var(--mono); letter-spacing: .12em; }
+.con-copywrap { display: inline-grid; gap: 6px; }
+.con-selectbox { min-width: min(520px, 90vw); font: 14px/1.5 var(--mono); }
+.con-helppanel { margin-top: 18px; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 0 18px; }
+.con-helppanel summary { cursor: pointer; padding: 14px 0; font-size: 16px; }
+.con-help-b { display: grid; gap: 14px; padding: 0 0 18px; }
+.con-help-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.con-help-tabs .link-btn { font-size: 15px; font-weight: 600; color: var(--muted); }
+.con-help-tabs .link-btn.on { color: var(--ink); text-decoration-thickness: 2px; text-decoration-color: var(--red); }
+.con-help-tabs .input { max-width: 260px; min-height: 36px; margin-left: auto; }
+.con-help-scope h3, .con-faq h3 { margin: 12px 0 6px; font-size: 15px; }
+.con-help-scope ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.con-faq dl { margin: 0; display: grid; gap: 10px; }
+.con-faq dt { font-weight: 700; }
+.con-faq dd { margin: 2px 0 0; color: var(--ink-2); }
+@media (max-width: 720px) {
+  .lesson-nav, .con-sticky { position: static; }   /* 머리가 두 줄이 되어 높이가 달라지므로 고정하지 않는다 */
+  .lesson-nav { background: transparent; border-bottom: 0; }
+}
+@media (max-width: 640px) { .con-script { font-size: 16.5px; } }
+@media print { .con-sticky, .lesson-nav { position: static; } }
