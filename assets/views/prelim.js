@@ -54,7 +54,7 @@ function ResultBox({ result }) {
       <tbody>${result.items.map((i) => html`<tr><td>${i.label}</td><td class="num"><b>${i.score}</b></td><td class="num muted">${i.max}</td></tr>`)}</tbody>
     </table></div>
     ${result.waitNo ? html`<div class="notice warn" style="margin-top:12px"><b>예비 ${result.waitNo}번입니다.</b> 본선 진출 팀에 결원이 생기면 순번대로 연락드립니다.</div>` : ''}
-    <p class="small muted" style="margin:10px 0 0">이름을 가린 제출본을 AI(Claude)가 ${result.runs}번 채점한 평균입니다. 순위는 공개하지 않습니다.</p>
+    <p class="small muted" style="margin:10px 0 0">이름을 가린 제출본으로 AI가 앱을 직접 써 보며 ${result.runs}번 채점한 평균입니다. 순위는 공개하지 않습니다.</p>
   </div>`;
 }
 
@@ -66,7 +66,7 @@ function ReadyPanel({ view, onView }) {
     <p style="margin:0">의무 교육 끝 무렵, 강사가 화면에 띄우는 <b>세션 코드</b>를 넣고 [예선 시작]을 누릅니다. 팀에서 한 사람만 누르면 됩니다(팀장이 아니어도 됩니다).</p>
     <ul class="bullets">
       <li>누르는 순간 과제가 무작위로 정해지고 ${hours}시간이 흐르기 시작합니다. 시작은 팀마다 한 번뿐이고 되돌릴 수 없습니다.</li>
-      <li>마감 전까지 GitHub 저장소 주소를 [예선 제출]로 제출합니다. 한 번도 제출하지 않으면 탈락입니다.</li>
+      <li>마감 전까지 앱 주소(또는 GitHub 저장소 주소)와 앱 소개·만든 과정을 [예선 제출]로 제출합니다. 한 번도 제출하지 않으면 탈락입니다.</li>
     </ul>
     <div><button class="btn btn-accent btn-lg" onClick=${() => setOpen(true)}>예선 시작</button></div>
     ${open ? html`<${StartDialog} hours=${hours} onView=${onView} onClose=${() => setOpen(false)} />` : ''}
@@ -177,35 +177,60 @@ function RunningPanel({ view, onView }) {
   </section>`;
 }
 
-function CheckList({ check }) {
-  if (!check) return null;
-  return html`<div style="margin-top:8px">
-    ${check.items && check.items.length ? html`<ul class="checklist">
-      ${check.items.map((i) => html`<li><span class=${i.ok ? 'y' : 'n'}>${i.ok ? '✓' : '✕'}</span>README ${i.label}</li>`)}
-    </ul>` : ''}
-    <div class="small" style="margin-top:6px">${check.message}${check.files === null ? '' : ` 보관한 파일 ${check.files}개.`}</div>
+/**
+ * 마지막 제출: 앱 주소·GitHub(커밋·보관본)와 서버가 제출 때 확인한 결과, 접어 둔 앱 소개·만든 과정.
+ * 확인이 필요한 것이 하나라도 있으면 노란 상자로 보인다.
+ */
+function Submitted({ sub }) {
+  const { site, repo } = sub;
+  const warn = [site && site.check, repo && repo.check].some((c) => c && c.state === 'warn');
+  return html`<div class=${`notice ${warn ? 'warn' : 'ok'}`}>
+    <b>제출됨 · ${fmtWhen(sub.at)}</b>${sub.by ? ` (${sub.by})` : ''}
+    <dl class="kv" style="margin-top:8px">
+      ${site ? html`<dt>앱 주소</dt><dd><a href=${site.url} target="_blank" rel="noopener noreferrer">${site.url}</a>${site.check ? html`<div>${site.check.message}</div>` : ''}</dd>` : ''}
+      ${repo ? html`<dt>GitHub</dt><dd><a href=${repo.url} target="_blank" rel="noopener noreferrer">${repo.url}</a> · 커밋 <span class="mono">${repo.sha.slice(0, 7)}</span> · 보관본 ${sizeText(repo.size)}${repo.check
+        ? html`<div>${repo.check.message}${repo.check.files === null ? '' : ` 보관한 파일 ${repo.check.files}개.`}</div>` : ''}</dd>` : ''}
+    </dl>
+    <details style="margin-top:8px"><summary class="small">앱 소개·만든 과정 보기</summary>
+      <dl class="kv" style="margin-top:8px"><dt>앱 소개</dt><dd>${sub.intro}</dd><dt>만든 과정</dt><dd>${sub.process}</dd></dl>
+    </details>
   </div>`;
 }
 
+/**
+ * [예선 제출]: 앱 주소와 GitHub 저장소 주소 중 하나 이상 + 앱 소개 + 만든 과정. 칸은 마지막 제출 내용으로 채워 두고,
+ * 제출이 거절되면 쓴 글을 그대로 두고 서버가 알려 준 칸에 까닭을 보인다.
+ */
 function SubmitBox({ view, onView, open }) {
   const { notify } = useApp();
-  const sub = view.prelim.submission;
-  const [repoUrl, setRepoUrl] = useState(sub ? sub.url : '');
+  const p = view.prelim;
+  const sub = p.submission;
+  const [form, setForm] = useState(() => ({
+    siteUrl: sub && sub.site ? sub.site.url : '',
+    repoUrl: sub && sub.repo ? sub.repo.url : '',
+    intro: sub ? sub.intro : '',
+    process: sub ? sub.process : '',
+  }));
   const [errors, setErrors] = useState({});
   const [busy, run] = useBusy();
   const token = session.get('member');
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const count = (k) => html`<span class="counter">${form[k].length} / ${p.textMax[k]}</span>`;
+  const ready = (form.siteUrl.trim() || form.repoUrl.trim()) && form.intro.trim() && form.process.trim();
 
   const submit = (e) => {
     e.preventDefault();
     run(async () => {
       try {
-        const res = await api('prelimSubmit', { token, repoUrl: repoUrl.trim() });
+        const res = await api('prelimSubmit', {
+          token, siteUrl: form.siteUrl.trim(), repoUrl: form.repoUrl.trim(), intro: form.intro.trim(), process: form.process.trim(),
+        });
         onView(res.view);
         setErrors({});
         const s = res.view.prelim.submission;
-        if (res.same) notify(`이미 같은 커밋(${s.sha.slice(0, 7)})을 제출했습니다. 새로 푸시했다면 GitHub 에 올라갔는지 확인하세요.`);
-        else if (res.stale) notify('다른 팀원이 더 나중에 한 제출이 남았습니다. 아래 제출 내용을 확인하세요.', 'err');
-        else notify(`제출했습니다 · 커밋 ${s.sha.slice(0, 7)}`);
+        if (res.same) notify('이미 같은 내용을 제출했습니다. 앱을 고쳤다면 공유 링크를 새로 만들었는지(Gemini), GitHub 에 올렸는지 확인하세요.');
+        else if (res.stale) notify('다른 팀원의 제출과 겹쳐 그 제출이 남았습니다. 아래 제출 내용을 확인하고, 필요하면 다시 제출하세요.', 'err');
+        else notify(`제출했습니다 · ${fmtWhen(s.at)}`);
       } catch (err) {
         if (err.ambiguous) {
           // 답을 못 받았다 — 서버에는 반영됐을 수 있으므로 지금 제출 상태를 다시 읽어 보여 준다.
@@ -218,20 +243,28 @@ function SubmitBox({ view, onView, open }) {
 
   return html`<div class="panel">
     <div class="panel-h"><h2>예선 제출</h2><span class="small muted">마지막 제출 하나만 심사합니다</span></div>
-    ${sub ? html`<div class=${`notice ${sub.check && sub.check.state === 'warn' ? 'warn' : 'ok'}`}>
-      <b>제출됨 · 커밋 <span class="mono">${sub.sha.slice(0, 7)}</span> · ${fmtWhen(sub.at)}</b>${sub.by ? ` (${sub.by})` : ''}
-      <div class="small" style="margin-top:4px"><a href=${sub.url} target="_blank" rel="noopener">${sub.url}</a> · 보관본 ${sizeText(sub.size)}</div>
-      <${CheckList} check=${sub.check} />
-    </div>` : html`<div class=${`notice ${open ? 'warn' : 'bad'}`}>${open
+    ${sub ? html`<${Submitted} sub=${sub} />` : html`<div class=${`notice ${open ? 'warn' : 'bad'}`}>${open
       ? '아직 제출하지 않았습니다. 마감 전까지 한 번 이상 제출해야 합니다. 한 번도 제출하지 않으면 탈락입니다.'
       : '마감 전까지 제출하지 않았습니다.'}</div>`}
     ${open ? html`<form class="stack" style="gap:12px" onSubmit=${submit} novalidate>
-      <${Field} label="GitHub 저장소 주소" id="prelim-repo" required error=${errors.repoUrl} hint="https://github.com/계정/저장소 — 저장소 첫 화면 주소, 공개(Public)">
-        <input id="prelim-repo" class="input mono" inputmode="url" autocomplete="off" placeholder="https://github.com/계정/저장소" value=${repoUrl} onInput=${(e) => setRepoUrl(e.target.value)} />
+      <p class="small muted" style="margin:0">앱 주소와 GitHub 저장소 주소 중 하나는 꼭 넣습니다(둘 다 넣어도 됩니다).</p>
+      <${Field} label="앱 주소" id="prelim-site" error=${errors.siteUrl} hint="Gemini 캔버스 [공유] 링크나 배포한 주소 — 로그인하지 않은 창에서도 열려야 합니다">
+        <input id="prelim-site" class="input mono" inputmode="url" autocomplete="off" placeholder="https://g.co/gemini/share/…" value=${form.siteUrl} onInput=${(e) => set('siteUrl', e.target.value)} />
+      <//>
+      <${Field} label="GitHub 저장소 주소" id="prelim-repo" optional error=${errors.repoUrl} hint="GitHub 로 만든 팀만 — 저장소 첫 화면 주소, 공개(Public)">
+        <input id="prelim-repo" class="input mono" inputmode="url" autocomplete="off" placeholder="https://github.com/계정/저장소" value=${form.repoUrl} onInput=${(e) => set('repoUrl', e.target.value)} />
+      <//>
+      <${Field} label="앱 소개" id="prelim-intro" required error=${errors.intro} hint="한 줄 소개 + 쓰는 방법(무엇을 누르고 무엇을 넣으면 되는지). GitHub 저장소만 냈다면 실행 방법도 적습니다.">
+        <textarea id="prelim-intro" class="textarea" rows="4" maxlength=${p.textMax.intro} value=${form.intro} onInput=${(e) => set('intro', e.target.value)}></textarea>
+        ${count('intro')}
+      <//>
+      <${Field} label="만든 과정" id="prelim-process" required error=${errors.process} hint="AI에게 한 요청(그대로 옮겨도 됩니다), 직접 써 보고 찾은 문제와 고치게 한 요청, 사람이 확인하고 고친 것. 팀원 이름은 쓰지 않습니다.">
+        <textarea id="prelim-process" class="textarea" rows="8" maxlength=${p.textMax.process} value=${form.process} onInput=${(e) => set('process', e.target.value)}></textarea>
+        ${count('process')}
       <//>
       ${errors._form ? html`<div class="err" role="alert">${errors._form}</div>` : ''}
-      <div><button class="btn btn-primary" type="submit" disabled=${busy || !repoUrl.trim()}>${busy ? '저장소를 받아 보관하는 중…' : sub ? '다시 제출' : '제출'}</button></div>
-      <p class="small muted" style="margin:0">제출하는 순간의 저장소(최신 커밋)를 서버에 보관하고 그것만 심사합니다. 제출 뒤에 푸시한 내용은 다시 제출해야 심사에 들어갑니다. 마감 직전에는 GitHub 가 느릴 수 있으니 1시간 전까지 마지막 제출을 마치세요.</p>
+      <div><button class="btn btn-primary" type="submit" disabled=${busy || !ready}>${busy ? '앱 주소를 확인하고 보관하는 중…' : sub ? '다시 제출' : '제출'}</button></div>
+      <p class="small muted" style="margin:0">마지막 제출 하나만 심사합니다. Gemini 공유 링크는 만든 때의 앱으로 고정되므로, 앱을 고친 뒤에는 [공유]로 링크를 새로 만들어 다시 제출하세요. GitHub 저장소는 제출하는 순간의 커밋을 보관합니다. 마감 1시간 전까지 마지막 제출을 마치세요.</p>
     </form>` : ''}
   </div>`;
 }

@@ -129,6 +129,7 @@ button { font: inherit; }
 .input:focus, .select:focus, .textarea:focus { outline: 2px solid var(--navy); outline-offset: 0; border-color: var(--navy); }
 .input::placeholder, .textarea::placeholder { color: var(--muted); }
 .input[readonly] { background: var(--paper); }
+.input.mono { font-family: var(--mono); }
 .field.bad .input, .field.bad .select, .field.bad .textarea { border-color: var(--red); background-color: #fffafa; }
 .hint { font-size: 14px; color: var(--muted); }
 .err { font-size: 14px; color: var(--red); font-weight: 500; }

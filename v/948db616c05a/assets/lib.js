@@ -89,8 +89,11 @@ async function fetchJson(url, opts, ms) {
 /** 공개 읽기 제한 시간(전달망은 보통 0.1~1초). 쓰기·로그인은 서버 처리(신청서 파일 만들기 포함)가 길 수 있어 넉넉히. */
 const PUBLIC_TIMEOUT_MS = 8000;
 const POST_TIMEOUT_MS = 60000;
-/** 오래 걸릴 수 있는 쓰기: 예선 제출은 GitHub 에서 저장소 압축 파일(최대 30MB)을 받아 드라이브에 보관한 뒤 답한다. */
-const SLOW_POST_MS = { prelimSubmit: 240000 };
+/**
+ * 오래 걸릴 수 있는 요청: 예선 제출은 앱 주소를 열어 확인하고, GitHub 저장소를 냈으면 압축 파일(최대 30MB)을 받아
+ * 드라이브에 보관한 뒤 답하고, 예선 심사 묶음의 팀 하나는 그 팀의 보관본을 읽어 개인정보를 가린 뒤 답한다.
+ */
+const SLOW_POST_MS = { prelimSubmit: 240000, adminPrelimBundleTeam: 180000 };
 
 /**
  * 쓰기·로그인·관리 요청(공개 읽기가 전달망에서 답을 못 받았을 때도). 서버는 본문의 action 만 쓴다. 주소에도 요청 이름을
@@ -166,7 +169,7 @@ export async function api(action, payload = {}) {
 /**
  * 역할별 로그인 토큰. 같은 주소(skyman200.github.io)를 다른 페이지들과 함께 쓰므로 오래 남기지 않는다.
  * - admin: 메모리에만(새로 고치면 다시 로그인) — 개인정보 원문을 볼 수 있는 토큰이라서
- * - member·judge: 이 탭(sessionStorage)에만 — 탭을 닫으면 사라진다
+ * - member·judge·teach(강사): 이 탭(sessionStorage)에만 — 탭을 닫으면 사라진다
  */
 const memoryTokens = {};
 function tabStore() {
@@ -324,6 +327,18 @@ export function phoneMask(v) {
   if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
   if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
   return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
+
+/** 브라우저에서 파일로 저장(내려받기). */
+export function saveFile(name, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 export async function copyText(text) {

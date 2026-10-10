@@ -93,6 +93,10 @@ export function BoardView() {
 
   const ph = data ? data.phase : config.phase;
   const contest = data && data.mode === 'contest';
+  // 접수가 끝나면 팀 구성 중인 팀은 더 모이거나 제출할 수 없다(서버가 막는다) — 그 칸과 수는 보이지 않는다.
+  // 관리자 칸반에는 남아 [팀 삭제]로 정리한다.
+  const closed = ph.apply === 'closed';
+  const columns = data ? data.columns.filter((c) => !(closed && c.key === 'forming')) : [];
   const AWARD_ORDER = { 금상: 0, 은상: 1, 동상: 2 };
   const winners = data ? data.teams.filter((t) => t.award).sort((a, b) => AWARD_ORDER[a.award] - AWARD_ORDER[b.award] || a.rank - b.rank) : [];
 
@@ -103,7 +107,7 @@ export function BoardView() {
         <p class="num">
           ${contest
             ? html`본선 ${ph.selectedTeams}팀 · 결과물 제출 ${data.teams.filter((t) => t.column === 'submitted').length}팀`
-            : html`접수 완료 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명) · 팀 구성 중 ${ph.formingTeams}팀 · 본선 ${ph.selectTarget}팀`}
+            : html`접수 완료 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명)${closed ? '' : ` · 팀 구성 중 ${ph.formingTeams}팀`} · 본선 ${ph.selectTarget}팀`}
         </p>
       </div>
       <div class="btn-row">
@@ -130,7 +134,7 @@ export function BoardView() {
     ${error ? html`<div class="notice bad" style="margin-bottom:16px">${error}</div>` : ''}
     ${!data ? html`<p class="muted">불러오는 중…</p>
       ${slow && !error ? html`<div class="notice warn">연결이 느립니다. 자동으로 계속 시도하고 있습니다. <button class="link-btn" onClick=${load}>지금 다시 시도</button></div>` : ''}` : html`<div class="board">
-      ${data.columns.map((col) => {
+      ${columns.map((col) => {
         const cards = data.teams.filter((t) => t.column === col.key && visible(t));
         return html`<section class=${`col${col.key === 'forming' ? ' dashed' : ''}`} aria-label=${col.label}>
           <div class="col-h"><h3>${col.label}</h3><span class="count">${cards.length}${cards.length !== col.count ? html`<small> / ${col.count}</small>` : ''}</span></div>
