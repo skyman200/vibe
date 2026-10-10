@@ -780,7 +780,7 @@ function DiscordPanel({ discord, reload }) {
   });
   const last = discord.last;
   return html`<div class="stack">
-    <p class="small muted" style="margin:0">팀장이 신청서를 제출(접수 완료)하면 디스코드 채널로 바로 알립니다. 접수한 팀의 신청 취소, 팀원 철회·내보내기·합류(충원), 팀장 변경, 팀·팀원 정보 수정, 예선 시작·제출, 본선 결과물 제출도 알립니다(팀 구성 중인 팀의 활동과 관리자가 한 일은 알리지 않습니다). 참가현황에 공개되는 팀명·대표 학과·참가 주제·프로젝트명과 팀 상태·인원·접수 수, 바뀐 항목의 이름만 보내고, 팀원의 학번·이름·연락처·이메일과 제출한 주소는 보내지 않습니다. 디스코드가 잠시 안 되면 5분 안에 다시 보냅니다.</p>
+    <p class="small muted" style="margin:0">팀장이 신청서를 제출(접수 완료)하면 디스코드 채널로 바로 알립니다. 접수한 팀의 신청 취소·팀원 철회·내보내기(모두 접수 기간에만 할 수 있음), 합류(충원), 팀장 변경, 팀·팀원 정보 수정, 강사의 의무 교육 시작, 예선 시작·제출·마감(마감은 마감 뒤 15분 안에), 본선 결과물 제출도 알립니다(팀 구성 중인 팀의 활동과 관리자가 한 일은 알리지 않습니다). 참가현황에 공개되는 팀명·대표 학과·참가 주제·프로젝트명과 팀 상태·인원·접수 수, 바뀐 항목의 이름만 보내고, 팀원의 학번·이름·연락처·이메일과 제출한 주소는 보내지 않습니다. 디스코드가 잠시 안 되면 5분 안에 다시 보냅니다.</p>
     <p style="margin:0"><b>${discord.on ? '켜짐' : '꺼짐'}</b>${discord.on ? html` <span class="small muted mono">${discord.hint}</span>` : ''}
       ${last ? html` · <span class=${`small ${last.ok ? 'muted' : 'err'}`}>마지막 알림 ${fmtWhen(last.at)} ${last.ok ? '보냄' : `실패 — ${last.error}`}</span>` : ''}
       ${discord.waiting ? html` · <span class="small err">다시 보낼 알림 ${discord.waiting}건</span>` : ''}</p>
@@ -887,7 +887,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
     </div>
 
     <fieldset class="fs">
-      <div class="fs-h"><h2>디스코드 알림</h2><p>새 참가 신청·신청 취소·팀원 변경·예선 제출 등을 알림</p></div>
+      <div class="fs-h"><h2>디스코드 알림</h2><p>새 참가 신청·교육 시작·예선 시작·제출·마감 등을 알림</p></div>
       <${DiscordPanel} discord=${data.discord} reload=${reload} />
     </fieldset>
 

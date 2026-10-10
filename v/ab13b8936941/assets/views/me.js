@@ -374,13 +374,15 @@ function DangerPanel({ view, onLeft }) {
     }
   });
   const close = () => { setModal(''); setChecked(false); setTyped(''); setError(''); };
+  const leave = view.can.leave;
   return html`<section class="danger">
     <div class="btn-row">
       <button class="btn btn-sm" onClick=${logout}>로그아웃</button>
-      ${!leader || alone ? html`<button class="btn btn-sm btn-danger" onClick=${() => setModal('withdraw')}>신청 철회</button>` : ''}
-      ${leader ? html`<button class="btn btn-sm btn-danger" onClick=${() => setModal('dissolve')}>팀 신청 취소</button>` : ''}
+      ${leave && (!leader || alone) ? html`<button class="btn btn-sm btn-danger" onClick=${() => setModal('withdraw')}>신청 철회</button>` : ''}
+      ${leave && leader ? html`<button class="btn btn-sm btn-danger" onClick=${() => setModal('dissolve')}>팀 신청 취소</button>` : ''}
     </div>
-    ${leader && !alone ? html`<p class="small muted" style="margin:0">팀장이 혼자 빠지려면 먼저 다른 팀원에게 팀장을 넘겨 주세요.</p>` : ''}
+    ${!leave ? html`<p class="small muted" style="margin:0" data-noleave>접수 기간이 끝나 신청 철회·팀 신청 취소는 할 수 없습니다. 부득이한 사정이 있으면 문의처로 연락해 주세요.</p>`
+      : leader && !alone ? html`<p class="small muted" style="margin:0">팀장이 혼자 빠지려면 먼저 다른 팀원에게 팀장을 넘겨 주세요.</p>` : ''}
     ${modal === 'withdraw' ? html`<${Modal} title="신청 철회" onClose=${close}>
       <p>철회하면 내 신청 정보(학번·연락처·이메일 등)가 바로 삭제됩니다. ${leader ? '팀장 혼자이므로 팀도 함께 삭제됩니다.'
         : view.team.status === 'draft' ? '' : '팀의 신청은 유지되고, 팀장이 새 팀원을 받으면 신청서가 새 명단으로 다시 만들어집니다.'}</p>

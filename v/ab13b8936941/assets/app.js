@@ -8,6 +8,7 @@ import { BoardView } from './views/board.js';
 import { MeView } from './views/me.js';
 import { JudgeView } from './views/judge.js';
 import { TeachView } from './views/teach.js';
+import { LessonView } from './views/lesson.js';
 import { AdminView } from './views/admin.js';
 import { PrivacyView } from './views/privacy.js';
 import { startUpdates, updateWaiting } from './update.js';
@@ -60,6 +61,7 @@ function Footer({ config }) {
       </div>
       <nav aria-label="보조 메뉴">
         <a href="#/privacy">개인정보 처리 안내</a>
+        <a href="#/lesson">교육 따라 하기</a>
         <a href="#/teach">강사 화면</a>
       </nav>
     </div>
@@ -172,7 +174,7 @@ function App() {
   useEffect(() => {
     const titles = {
       home: '안내', apply: '팀 만들기', join: '팀 합류', board: '참가현황', me: '내 신청',
-      judge: '심사', teach: '강사', admin: '관리자', privacy: '개인정보 처리 안내',
+      judge: '심사', teach: '강사', lesson: '교육 따라 하기', admin: '관리자', privacy: '개인정보 처리 안내',
     };
     document.title = `${titles[route.name] || '안내'} — DIT 바이브코딩 해커톤 2026`;
   }, [route.name]);
@@ -187,6 +189,7 @@ function App() {
   else if (route.name === 'me') view = html`<${MeView} />`;
   else if (route.name === 'judge') view = html`<${JudgeView} />`;
   else if (route.name === 'teach') view = html`<${TeachView} />`;
+  else if (route.name === 'lesson') view = html`<${LessonView} />`;
   else if (route.name === 'admin') view = html`<${AdminView} />`;
   else if (route.name === 'privacy') view = html`<${PrivacyView} />`;
   else view = html`<${HomeView} />`;
@@ -213,7 +216,7 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 /** index.html 이 주소만 보고 미리 그린 안내 화면을 숨기는(html.deep) 화면 — 그 스크립트의 목록과 같다(test/index-html.test.mjs). */
-const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy', 'teach'];
+const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy', 'teach', 'lesson'];
 
 // 다른 사이트가 이 화면을 틀(iframe) 안에 넣어 클릭을 가로채지 못하게 한다(GitHub Pages 는 헤더를 못 붙이므로 스크립트로).
 const root = document.getElementById('app');

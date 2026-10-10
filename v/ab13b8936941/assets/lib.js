@@ -90,8 +90,8 @@ async function fetchJson(url, opts, ms) {
 const PUBLIC_TIMEOUT_MS = 8000;
 const POST_TIMEOUT_MS = 60000;
 /**
- * 오래 걸릴 수 있는 요청: 예선 제출은 GitHub 에서 저장소 압축 파일(최대 30MB)을 받아 드라이브에 보관한 뒤 답하고,
- * 예선 심사 묶음의 팀 하나는 그 팀의 보관본을 읽어 개인정보를 가린 뒤 답한다.
+ * 오래 걸릴 수 있는 요청: 예선 제출은 앱 주소를 열어 확인하고, GitHub 저장소를 냈으면 압축 파일(최대 30MB)을 받아
+ * 드라이브에 보관한 뒤 답하고, 예선 심사 묶음의 팀 하나는 그 팀의 보관본을 읽어 개인정보를 가린 뒤 답한다.
  */
 const SLOW_POST_MS = { prelimSubmit: 240000, adminPrelimBundleTeam: 180000 };
 

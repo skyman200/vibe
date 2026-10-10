@@ -1,6 +1,7 @@
-// 관리자 · 예선 심사(gas/PrelimJudge.js, 심사 도구 Claude). ① 심사 묶음 받기(모든 팀 마감 뒤, 개인정보를 가린 제출본 JSON)
-// → ② 운영 담당 컴퓨터에서 node tools/judge.mjs 로 팀마다 3번 채점 → ③ scores.json 올리기 → ④ 순위·갈림·동점 확인, 규칙을 어긴
-// 팀은 심사 제외(사유) → ⑤ 선발 확정(본선 진출·예비·미선발을 칸반에 반영) → [설정]에서 본선 진출 발표(그 뒤로는 잠긴다).
+// 관리자 · 예선 심사(gas/PrelimJudge.js, 심사 도구: 운영 담당 컴퓨터의 gjc). ① 심사 묶음 받기(모든 팀 마감 뒤, 개인정보를 가린 제출본 JSON)
+// → ② 운영 담당 컴퓨터에서 node tools/judge.mjs prepare 로 채점 폴더를 만들고, gjc 가 tools/JUDGING.md 대로 팀마다 앱을 직접 열어
+// 3번 채점한 뒤 collect 로 scores.json 을 만든다 → ③ scores.json 올리기 → ④ 순위·갈림·동점 확인, 규칙을 어긴 팀은 심사 제외(사유)
+// → ⑤ 선발 확정(본선 진출·예비·미선발을 칸반에 반영) → [설정]에서 본선 진출 발표(그 뒤로는 잠긴다).
 import {
   html, useState, useEffect, useApp, api, session, fmtShort, copyText, saveFile,
 } from '../lib.js';
@@ -45,7 +46,7 @@ function OutDialog({ team, busy, onSave, onClose }) {
   const [reason, setReason] = useState('');
   return html`<${Modal} title=${`심사 제외 · ${team.code} ${team.name}`} onClose=${onClose}>
     <div class="stack" style="gap:12px">
-      <p style="margin:0">예선 규칙을 어긴 팀(과제 공유, 다른 팀 코드 복사, 심사 조작 시도 등)을 순위에서 뺍니다. 선발 확정 때 미선발이 됩니다.</p>
+      <p style="margin:0">예선 규칙을 어긴 팀(과제 공유, 다른 팀 앱·코드 베끼기, 실제 개인정보·비밀값 사용, 심사 조작 시도 등)을 순위에서 뺍니다. 선발 확정 때 미선발이 됩니다.</p>
       <textarea class="textarea" rows="3" maxlength="200" placeholder="사유(관리자만 봅니다)" aria-label="제외 사유" value=${reason}
         onInput=${(e) => setReason(e.target.value)}></textarea>
       <p class="small muted" style="margin:0">팀원에게는 사유 없이 '운영 담당 판정으로 심사에서 제외되었습니다.'만 보입니다.</p>
@@ -124,12 +125,12 @@ export function JudgePanel({ reload }) {
   const ties = data.teams.filter((t) => t.tie).map((t) => t.code);
   const scoredNow = !!data.bundleId && data.scoredBundle === data.bundleId;
   const name = file || 'prelim-judge-bundle-….json';
-  const cmd = WINDOWS ? `node tools\\judge.mjs "$env:USERPROFILE\\Downloads\\${name}"` : `node tools/judge.mjs ~/Downloads/${name}`;
+  const cmd = WINDOWS ? `node tools\\judge.mjs prepare "$env:USERPROFILE\\Downloads\\${name}"` : `node tools/judge.mjs prepare ~/Downloads/${name}`;
   const blockers = [];
   if (c.running) blockers.push(`아직 마감되지 않은 팀이 ${c.running}팀 있습니다.`);
   if (c.unbundled) blockers.push(`심사 묶음에 들어가지 않은 제출이 ${c.unbundled}팀 있습니다. 묶음을 다시 받아 처음부터 채점해 올려 주세요.`);
   if (!c.unbundled && !scoredNow) blockers.push(data.bundleId ? '지금 심사 묶음의 점수를 아직 올리지 않았습니다.' : '심사 묶음을 아직 받지 않았습니다.');
-  if (ties.length) blockers.push(`모든 항목 점수가 같은 팀: ${ties.join(', ')} — 이 팀만 다시 채점(--redo ${ties.join(',')})해 점수를 다시 올려 주세요.`);
+  if (ties.length) blockers.push(`모든 항목 점수가 같은 팀: ${ties.join(', ')} — 이 팀만 다시 채점(node tools/judge.mjs prepare <묶음 파일> --redo ${ties.join(',')} → gjc 로 채점 → collect)해 점수를 다시 올려 주세요.`);
 
   /** 묶음의 머리(심사 번호)를 받고 팀마다 한 번씩 받아 한 파일로 내려받는다. 한 팀이라도 못 받으면 내려받지 않는다. */
   const getBundle = () => run(async () => {
@@ -181,16 +182,16 @@ export function JudgePanel({ reload }) {
 
   return html`<section class="panel">
     <div class="panel-h"><h2>예선 심사</h2>
-      <div class="btn-row"><span class="small muted">Claude 가 팀마다 ${data.runs}번 채점한 평균 · 본선 ${data.selectTarget}팀 · ${fmtShort(data.now)} 기준</span>
+      <div class="btn-row"><span class="small muted">gjc 가 팀마다 ${data.runs}번 채점한 평균 · 본선 ${data.selectTarget}팀 · ${fmtShort(data.now)} 기준</span>
         <button class="btn btn-sm" disabled=${busy} onClick=${load}>새로 고침</button></div>
     </div>
     ${locked ? html`<div class="notice">본선 진출을 발표해 예선 심사가 잠겼습니다. 보기만 됩니다.</div>` : ''}
     <div class="chips">${Object.keys(STATE).filter((k) => c[k]).map((k) => html`<span class=${`pstate ${STATE[k][1]}`}>${STATE[k][0]} ${c[k]}</span>`)}</div>
     <ol class="jsteps">
-      <li><b>심사 묶음 받기</b> 예선을 시작한 모든 팀의 마감이 지난 뒤에 받습니다. 성명·학번·연락처·이메일·학과·팀명·프로젝트명·GitHub 계정과 저장소 이름을 가린 제출본(JSON)이고, 팀에는 무작위 심사 번호가 붙습니다. 팀마다 차례로 읽어 한 파일로 묶습니다.
+      <li><b>심사 묶음 받기</b> 예선을 시작한 모든 팀의 마감이 지난 뒤에 받습니다. 성명·학번·연락처·이메일·학과·팀명·프로젝트명·GitHub 계정과 저장소 이름을 가린 제출본(JSON)이고, 팀에는 무작위 심사 번호가 붙습니다. 앱 주소는 채점할 때 열어 봐야 하므로 가리지 않습니다. 팀마다 차례로 읽어 한 파일로 묶습니다.
         <div class="btn-row"><button class="btn btn-sm btn-primary" disabled=${busy || locked || !!c.running} onClick=${getBundle}>${busy ? (progress ? `팀 읽는 중 ${progress}` : '처리 중…') : '심사 묶음 받기'}</button>
           <span class="small muted">${data.bundledAt ? `묶음 ${data.bundleId} · ${fmtShort(data.bundledAt)} 받음` : '아직 받지 않음'}</span></div></li>
-      <li><b>Claude 로 채점</b> Claude Code 에 로그인한 운영 담당 컴퓨터의 이 저장소 폴더에서 실행합니다. 팀마다 3번 채점하고(중간에 끊기면 같은 명령으로 이어서), 끝나면 묶음 파일 옆 judge-${data.bundleId || '<묶음 번호>'} 폴더에 scores.json 과 근거(report.md)를 만듭니다. 근거는 그 컴퓨터에만 둡니다.
+      <li><b>gjc 로 채점</b> 운영 PC 의 이 저장소 폴더에서 <code class="ic">${'node tools/judge.mjs prepare <묶음 파일>'}</code> 로 채점 폴더(judge-${data.bundleId || '<묶음 번호>'}/)를 만든 뒤, gjc 에게 "tools/JUDGING.md 대로 채점해" 라고 시킵니다. gjc 가 팀마다 앱을 직접 열어 3번 채점하고 <code class="ic">${'node tools/judge.mjs collect <채점 폴더>'}</code> 로 scores.json 과 report.md 를 만듭니다. GitHub 저장소만 낸 팀을 실행해 보려면 Docker Desktop 을 켜 둡니다.
         <div class="btn-row"><code class="cmd">${cmd}</code><button class="btn btn-sm" onClick=${async () => notify((await copyText(cmd)) ? '명령을 복사했습니다.' : '복사하지 못했습니다.')}>복사</button></div></li>
       <li><b>점수 올리기</b> scores.json 을 고릅니다. 묶음 번호가 지금과 같고 모든 팀의 점수가 맞아야 한 번에 반영합니다.
         <div class="btn-row"><label class="btn btn-sm" aria-disabled=${busy || locked ? 'true' : 'false'}>scores.json 고르기<input type="file" accept=".json,application/json" hidden disabled=${busy || locked} onChange=${upload} /></label>
@@ -205,7 +206,7 @@ export function JudgePanel({ reload }) {
       <thead><tr><th>순위</th><th>번호</th><th>팀</th><th>심사</th>${data.rubric.map((r) => html`<th title=${r.desc}>${r.label} ${r.max}</th>`)}<th>총점</th><th>표시</th><th>상태</th><th></th></tr></thead>
       <tbody>${data.teams.map((t) => html`<${Row} key=${t.id} t=${t} rubric=${data.rubric} busy=${busy} locked=${locked} onOut=${setOutTeam} onIn=${saveIn} />`)}</tbody>
     </table></div>
-    <p class="small muted" style="margin:0">총점은 항목별 3회 평균의 합입니다(총점 칸에 마우스를 올리면 3번의 점수). 동점이면 과제 충족 → 완성도 → AI 활용 → 코드 품질·보안 → 문서화 순으로 가리고, 그래도 같으면 그 팀들만 다시 채점합니다.</p>
+    <p class="small muted" style="margin:0">총점은 항목별 3회 평균의 합입니다(총점 칸에 마우스를 올리면 3번의 점수). 동점이면 ${data.rubric.map((r) => r.label).join(' → ')} 순으로 가리고, 그래도 같으면 그 팀들만 다시 채점합니다.</p>
     ${outTeam ? html`<${OutDialog} team=${outTeam} busy=${busy} onSave=${saveOut} onClose=${() => setOutTeam(null)} />` : ''}
     ${finalize ? html`<${FinalizeDialog} data=${data} busy=${busy} onSave=${saveFinal} onClose=${() => setFinalize(false)} />` : ''}
   </section>`;

@@ -159,6 +159,11 @@ export function HomeView() {
   const awards = e.awards;
   const awardTeams = PRIZES.reduce((a, [k]) => a + awards[k], 0);
   const awardTotal = PRIZES.reduce((a, [k, , amount]) => a + awards[k] * amount, 0);
+  // 접수가 끝나면 팀 구성 중인 팀은 더 모이거나 제출할 수 없다(서버가 막는다) — '모집 중' 대신 본선 진출 팀 수를 보인다
+  // (본선 진출 발표 전에는 서버가 진출 팀 수를 보내지 않으므로 설정한 본선 팀 수).
+  const third = ph.apply !== 'closed' ? { big: `${ph.formingTeams}팀`, small: '팀 구성 중(4명 모집 중)' }
+    : ph.selectedTeams == null ? { big: `${ph.selectTarget}팀`, small: '본선 진출 팀 수' }
+      : { big: `${ph.selectedTeams}팀`, small: '본선 진출' };
 
   return html`<div class="wrap"><${Hero} config=${config} /></div>
 
@@ -177,7 +182,7 @@ export function HomeView() {
     <div class="ticker" aria-label="접수 현황">
       <div><b>${ph.appliedTeams}팀</b><span>접수 완료</span></div>
       <div><b>${ph.applicants}<span class="of"> / ${ph.applicantCap}명</span></b><span>신청 인원 / 정원</span></div>
-      <div><b>${ph.formingTeams}팀</b><span>팀 구성 중(4명 모집 중)</span></div>
+      <div><b>${third.big}</b><span>${third.small}</span></div>
       <div><b>${state.big}</b><span>${state.small}</span></div>
     </div>
 
