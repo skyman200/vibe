@@ -1,6 +1,6 @@
 // 관리자: 개인정보 원문을 보는 유일한 화면. 칸반(끌어서 상태 변경)·참가자·예선(admin-prelim.js)·심사·설정·엑셀.
 import {
-  html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, fileToBase64, STATUS_LABEL, josaRo,
+  html, useState, useEffect, useApp, api, session, fmtWhen, fmtShort, copyText, groupBySeries, fileToBase64, STATUS_LABEL, josaRo, saveFile,
 } from '../lib.js';
 import {
   Field, DeptSelect, FormTemplates, LoadFailed, Modal, Slots, Status, useBusy, serverErrors, focusFirstError,
@@ -159,14 +159,7 @@ function saveBase64({ name, mime, data }) {
   const bin = atob(data);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const url = URL.createObjectURL(new Blob([bytes], { type: mime || 'application/octet-stream' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  saveFile(name, new Blob([bytes], { type: mime || 'application/octet-stream' }));
 }
 
 /** 관리자가 입력하는 참가자 칸(서면 신청·팀원 추가·정정). prefix: 서버 오류 칸 이름 앞부분(members.0. / member.) */
@@ -768,7 +761,7 @@ function PurgeResult({ res }) {
   </div>`;
 }
 
-/** 새 참가 신청 디스코드 알림: 채널 웹후크 주소를 저장·확인·끈다. 주소 원문은 서버가 돌려주지 않는다(가린 값만). */
+/** 디스코드 알림(새 참가 신청·접수한 팀의 참가자 활동): 채널 웹후크 주소를 저장·확인·끈다. 주소 원문은 서버가 돌려주지 않는다(가린 값만). */
 function DiscordPanel({ discord, reload }) {
   const { notify } = useApp();
   const [url, setUrl] = useState('');
@@ -787,7 +780,7 @@ function DiscordPanel({ discord, reload }) {
   });
   const last = discord.last;
   return html`<div class="stack">
-    <p class="small muted" style="margin:0">팀장이 신청서를 제출(접수 완료)하면 디스코드 채널로 바로 알립니다. 참가현황에 공개되는 팀명·대표 학과·참가 주제·프로젝트명과 접수 수만 보내고, 팀원의 학번·이름·연락처는 보내지 않습니다. 디스코드가 잠시 안 되면 5분 안에 다시 보냅니다.</p>
+    <p class="small muted" style="margin:0">팀장이 신청서를 제출(접수 완료)하면 디스코드 채널로 바로 알립니다. 접수한 팀의 신청 취소, 팀원 철회·내보내기·합류(충원), 팀장 변경, 팀·팀원 정보 수정, 예선 시작·제출, 본선 결과물 제출도 알립니다(팀 구성 중인 팀의 활동과 관리자가 한 일은 알리지 않습니다). 참가현황에 공개되는 팀명·대표 학과·참가 주제·프로젝트명과 팀 상태·인원·접수 수, 바뀐 항목의 이름만 보내고, 팀원의 학번·이름·연락처·이메일과 제출한 주소는 보내지 않습니다. 디스코드가 잠시 안 되면 5분 안에 다시 보냅니다.</p>
     <p style="margin:0"><b>${discord.on ? '켜짐' : '꺼짐'}</b>${discord.on ? html` <span class="small muted mono">${discord.hint}</span>` : ''}
       ${last ? html` · <span class=${`small ${last.ok ? 'muted' : 'err'}`}>마지막 알림 ${fmtWhen(last.at)} ${last.ok ? '보냄' : `실패 — ${last.error}`}</span>` : ''}
       ${discord.waiting ? html` · <span class="small err">다시 보낼 알림 ${discord.waiting}건</span>` : ''}</p>
@@ -894,7 +887,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
     </div>
 
     <fieldset class="fs">
-      <div class="fs-h"><h2>디스코드 알림</h2><p>새 참가 신청이 접수되면 알림</p></div>
+      <div class="fs-h"><h2>디스코드 알림</h2><p>새 참가 신청·신청 취소·팀원 변경·예선 제출 등을 알림</p></div>
       <${DiscordPanel} discord=${data.discord} reload=${reload} />
     </fieldset>
 

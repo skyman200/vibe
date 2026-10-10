@@ -1,9 +1,11 @@
-// 관리자 · 예선(gas/Prelim.js): 회차별 세션 코드 만들기·끝내기, 팀별 시작·과제·마감·마지막 제출(보관본), 남은 과제 수, 강사 코드.
+// 관리자 · 예선(gas/Prelim.js): 회차별 세션 코드 만들기·끝내기, 팀별 시작·과제·마감·마지막 제출(앱 주소·GitHub 보관본·앱 소개·만든 과정), 남은 과제 수,
+// 예선 심사(admin-judge.js), 강사 코드.
 // 과제 내용은 운영 담당만 본다. 강사는 강사 화면(teach.js)에서 세션 코드 칸(SessionCodes)만 쓴다. 진행 현황은 1분마다 새로 읽는다.
 import {
   html, useState, useEffect, useApp, useInterval, api, session, fmtShort,
 } from '../lib.js';
 import { Modal, useBusy } from '../ui.js';
+import { JudgePanel } from './admin-judge.js';
 
 const token = () => session.get('admin');
 
@@ -27,6 +29,14 @@ function sizeText(n) {
   return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
 }
 
+/** 서버가 제출 때 남긴 확인 결과: 확인이 필요하면 눈에 띄게, 아니면 작게(긴 글은 마우스를 올리면 다 보인다). */
+function CheckNote({ check }) {
+  if (!check) return null;
+  return check.state === 'warn'
+    ? html`<div class="small wrap-cell"><span class="flag">확인 필요</span> ${check.message}</div>`
+    : html`<div class="small muted wrap-cell" title=${check.message}>${check.kind === 'gemini' ? 'Gemini 공유 링크' : '확인됨'}</div>`;
+}
+
 function TeamRow({ t }) {
   const p = t.prelim;
   const s = p && p.submission;
@@ -38,18 +48,23 @@ function TeamRow({ t }) {
     <td class="small num">${p ? fmtShort(p.startedAt) : '-'}</td>
     <td class="small num">${p ? fmtShort(p.deadline) : '-'}</td>
     <td>${p ? html`<span class="mono small">${p.task.id}</span> ${p.task.title}` : '-'}</td>
-    <td>${s ? html`<a href=${s.url} target="_blank" rel="noopener">${s.url.replace('https://github.com/', '')}</a>
-      <div class="small"><span class="mono">${s.sha.slice(0, 7)}</span> · ${fmtShort(s.at)}${s.check && s.check.state === 'warn'
-        ? html` · <span class="flag" title=${s.check.message}>확인 필요</span>` : ''}</div>` : '-'}</td>
-    <td class="small">${s ? html`<a href=${s.file} target="_blank" rel="noopener">${sizeText(s.size)}</a>` : '-'}</td>
+    <td>${s ? html`<div class="small num">${fmtShort(s.at)}</div>
+      ${s.site ? html`<div>앱 <a href=${s.site.url} target="_blank" rel="noopener noreferrer">${s.site.url.replace(/^https:\/\//, '')}</a></div>
+        <${CheckNote} check=${s.site.check} />` : ''}
+      ${s.repo ? html`<div>GitHub <a href=${s.repo.url} target="_blank" rel="noopener noreferrer">${s.repo.url.replace('https://github.com/', '')}</a> · <span class="mono small">${s.repo.sha.slice(0, 7)}</span></div>
+        <${CheckNote} check=${s.repo.check} />` : ''}
+      <details><summary class="small">앱 소개·만든 과정</summary>
+        <dl class="kv" style="margin-top:6px;max-width:36em;white-space:normal"><dt>앱 소개</dt><dd>${s.intro}</dd><dt>만든 과정</dt><dd>${s.process}</dd></dl>
+      </details>` : '-'}</td>
+    <td class="small">${s && s.repo ? html`<a href=${s.repo.file} target="_blank" rel="noopener noreferrer">${sizeText(s.repo.size)}</a>` : '-'}</td>
   </tr>`;
 }
 
 /**
  * 세션 코드 칸(관리자 [예선] 탭과 강사 화면이 같이 쓴다): 회차 이름으로 만들기 → 크게 보기, 지금 끝내기, 코드마다 시작한 팀
- * (이름·첫 제출 여부). call(action, payload, 성공 알림)은 새 현황을 돌려주고, 실패하면 null.
+ * (이름·첫 제출 여부). call(action, payload, 성공 알림)은 새 현황을 돌려주고, 실패하면 null. autoBig 가 거짓이면 만든 뒤 [크게 보기] 창을 자동으로 열지 않는다.
  */
-export function SessionCodes({ data, busy, call }) {
+export function SessionCodes({ data, busy, call, autoBig = true }) {
   const [label, setLabel] = useState('');
   const [big, setBig] = useState(null);
   const create = async (e) => {
@@ -57,7 +72,7 @@ export function SessionCodes({ data, busy, call }) {
     const res = await call('adminPrelimSession', { label: label.trim() }, '세션 코드를 만들었습니다.');
     if (res) {
       setLabel('');
-      setBig(res.sessions[0]);
+      if (autoBig) setBig(res.sessions[0]);   // 강사 화면은 코드가 시계줄 아래에 고정되어 보이므로 창을 자동으로 열지 않는다(현황을 가리지 않게)
     }
   };
   const end = (x) => {
@@ -68,7 +83,7 @@ export function SessionCodes({ data, busy, call }) {
   return html`<section class="panel">
       <div class="panel-h"><h2>세션 코드</h2><span class="small muted">회차마다 새로 만듭니다 · 만든 때부터 ${data.codeHours}시간 유효</span></div>
       <form class="btn-row" onSubmit=${create}>
-        <input class="input" style="max-width:280px" maxlength="30" placeholder="회차 이름(예: 10/13(월) 1회차)" aria-label="회차 이름"
+        <input class="input" style="max-width:280px" maxlength="30" placeholder="회차 이름(예: 10/12(월) 1회차)" aria-label="회차 이름"
           value=${label} onInput=${(e) => setLabel(e.target.value)} />
         <button class="btn btn-primary" type="submit" disabled=${busy || label.trim().length < 2}>세션 코드 만들기</button>
       </form>
@@ -84,7 +99,7 @@ export function SessionCodes({ data, busy, call }) {
           <td class="nowrap">${x.active ? html`<button class="link-btn" onClick=${() => setBig(x)}>크게 보기</button>${' · '}<button class="link-btn" disabled=${busy} onClick=${() => end(x)}>지금 끝내기</button>` : ''}</td>
         </tr>`)}</tbody>
       </table></div>` : html`<p class="small muted" style="margin:0">아직 만든 세션 코드가 없습니다.</p>`}
-      <p class="small muted" style="margin:0">교육 1:45(예선 시작) 전에는 코드를 화면에 띄우지 않습니다. 회차가 끝나면 [지금 끝내기]를 누릅니다. 교육 기간 안에 시작하지 않은 팀은 탈락입니다.</p>
+      <p class="small muted" style="margin:0">교육 마지막 순서(예선 시작) 전에는 코드를 화면에 띄우지 않습니다. 회차가 끝나면 [지금 끝내기]를 누릅니다. 교육 기간 안에 시작하지 않은 팀은 탈락입니다.</p>
     </section>
     ${big ? html`<${Modal} title=${`세션 코드 · ${big.label}`} onClose=${() => setBig(null)} wide>
       <p class="code-huge">${big.code}</p>
@@ -176,8 +191,10 @@ export function PrelimTab({ reload }) {
         <thead><tr><th>팀</th><th>진행</th><th>세션</th><th>시작</th><th>마감</th><th>과제</th><th>마지막 제출</th><th>보관본</th></tr></thead>
         <tbody>${shown.map((t) => html`<${TeamRow} key=${t.id} t=${t} />`)}</tbody>
       </table></div>
-      <p class="small muted" style="margin:0">심사는 각 팀 마지막 제출의 보관본(제출 순간 커밋의 압축 파일, 신청서 폴더)으로만 합니다. 마감은 마감 시각의 그 분이 끝날 때까지입니다.</p>
+      <p class="small muted" style="margin:0">심사는 각 팀의 마지막 제출(앱 주소, 앱 소개·만든 과정, GitHub 를 낸 팀은 제출 순간 커밋의 보관본 — 신청서 폴더)로만 합니다. 마감은 마감 시각의 그 분이 끝날 때까지입니다.</p>
     </section>
+
+    <${JudgePanel} reload=${reload} />
 
     <${TeachCodePanel} data=${data} busy=${busy} call=${call} />
   </div>`;
