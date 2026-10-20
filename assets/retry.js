@@ -5,11 +5,15 @@
 //   예선 제출(prelimSubmit)은 앱 주소를 직접 열어 보고 GitHub 저장소 압축 파일(최대 30MB)을 받아 보관하므로, 끊겼을 때
 //   다시 보내면 서버가 같은 일을 겹쳐 한다 — 다시 보내지 않고 호출 측이 제출 상태를 다시 읽는다. 예선 심사 묶음은 다시 보내도 된다: 머리(adminPrelimBundle)는
 //   심사 번호를 한 번만 정해 같은 답이고, 팀마다 받는 adminPrelimBundleTeam 은 읽기만 한다.
+//   멘토링: 요청(helpRequest)·취소(helpCancel)는 두 번 해도 같다(요청 중에 다시 보내면 글만 고치고 알림은 처음 한 번). 멘토의
+//   처리(mentorHelp)는 [완료]가 반영된 뒤 다시 가면 '그사이 바뀜'으로 거절되므로 다시 보내지 않고 화면이 목록을 다시 읽는다.
+//   만족도 조사(surveySubmit)·최종 제출(finalSubmit)·운영진 처리(adminFinal)는 다시 보내도 된다: 이미 했으면 그대로 돌려주고,
+//   응답 시트에 적은 뒤 답만 잃은 경우는 서버가 캐시 표시로 줄을 겹치지 않는다(디스코드 최종 제출 알림도 처음 한 번).
 
 export const NO_NETWORK_RETRY = new Set([
   'adminCode', 'adminJudgeAdd', 'adminJudgeReset', 'adminJudgeRemove', 'adminMemberRemove', 'adminDeleteTeam', 'adminPurge',
   'adminPinReset', 'meWithdraw', 'meUpdate', 'teamDissolve', 'teamKick', 'teamTransfer', 'teamInvite', 'adminPrelimSession', 'adminTeachCode', 'prelimSubmit',
-  'teachStart',
+  'teachStart', 'adminMentorCode', 'mentorHelp',
 ]);
 
 export const MAX_ATTEMPTS = 6;

@@ -3,27 +3,9 @@
 // 남은 시간은 서버 시각 기준이다: 화면 자료(view)를 받을 때마다 서버 시각과 이 기기 시계의 차이를 재어 보정한다
 // (휴대폰 시계가 틀려도 맞다). 마감은 마감 시각의 그 분이 끝날 때까지다(서버와 같은 규칙).
 import {
-  html, useState, useRef, useApp, useInterval, api, session, fmtWhen, toMs,
+  html, useState, useApp, useInterval, api, session, fmtWhen, useServerOffset, endMs, remainText,
 } from '../lib.js';
 import { Field, Modal, useBusy, serverErrors } from '../ui.js';
-
-/** 서버 시각 − 이 기기 시각(ms). 새 화면 자료(서버 시각 now)를 받을 때마다 다시 잰다. */
-function useServerOffset(now) {
-  const ref = useRef({ now: null, offset: 0 });
-  if (ref.current.now !== now) ref.current = { now, offset: toMs(now) - Date.now() };
-  return ref.current.offset;
-}
-
-/** 제출을 받는 마지막 순간(ms): 마감 시각의 그 분이 끝날 때까지. */
-function endMs(deadline) {
-  return toMs(deadline) + 59999;
-}
-
-function remainText(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const two = (n) => String(n).padStart(2, '0');
-  return `${Math.floor(s / 3600)}시간 ${two(Math.floor((s % 3600) / 60))}분 ${two(s % 60)}초`;
-}
 
 function sizeText(n) {
   return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
