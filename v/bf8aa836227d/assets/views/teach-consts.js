@@ -3,4 +3,5 @@ export const STARTER_URL = 'https://github.com/skyman200/vibe-starter';
 export const SITE_URL = 'https://skyman200.github.io/vibe/';
 export const LESSON_URL = `${SITE_URL}#/lesson`;
 export const TEACH_URL = `${SITE_URL}#/teach`;
+export const GEMINI_URL = 'https://gemini.google.com';
 export const TOTAL_MIN = 90;

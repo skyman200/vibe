@@ -1,4 +1,4 @@
-// 관리자 · 예선(gas/Prelim.js): 회차별 세션 코드 만들기·끝내기, 팀별 시작·과제·마감·마지막 제출(보관본), 남은 과제 수,
+// 관리자 · 예선(gas/Prelim.js): 회차별 세션 코드 만들기·끝내기, 팀별 시작·과제·마감·마지막 제출(앱 주소·GitHub 보관본·앱 소개·만든 과정), 남은 과제 수,
 // 예선 심사(admin-judge.js), 강사 코드.
 // 과제 내용은 운영 담당만 본다. 강사는 강사 화면(teach.js)에서 세션 코드 칸(SessionCodes)만 쓴다. 진행 현황은 1분마다 새로 읽는다.
 import {
@@ -29,6 +29,14 @@ function sizeText(n) {
   return n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
 }
 
+/** 서버가 제출 때 남긴 확인 결과: 확인이 필요하면 눈에 띄게, 아니면 작게(긴 글은 마우스를 올리면 다 보인다). */
+function CheckNote({ check }) {
+  if (!check) return null;
+  return check.state === 'warn'
+    ? html`<div class="small wrap-cell"><span class="flag">확인 필요</span> ${check.message}</div>`
+    : html`<div class="small muted wrap-cell" title=${check.message}>${check.kind === 'gemini' ? 'Gemini 공유 링크' : '확인됨'}</div>`;
+}
+
 function TeamRow({ t }) {
   const p = t.prelim;
   const s = p && p.submission;
@@ -40,10 +48,15 @@ function TeamRow({ t }) {
     <td class="small num">${p ? fmtShort(p.startedAt) : '-'}</td>
     <td class="small num">${p ? fmtShort(p.deadline) : '-'}</td>
     <td>${p ? html`<span class="mono small">${p.task.id}</span> ${p.task.title}` : '-'}</td>
-    <td>${s ? html`<a href=${s.url} target="_blank" rel="noopener">${s.url.replace('https://github.com/', '')}</a>
-      <div class="small"><span class="mono">${s.sha.slice(0, 7)}</span> · ${fmtShort(s.at)}${s.check && s.check.state === 'warn'
-        ? html` · <span class="flag" title=${s.check.message}>확인 필요</span>` : ''}</div>` : '-'}</td>
-    <td class="small">${s ? html`<a href=${s.file} target="_blank" rel="noopener">${sizeText(s.size)}</a>` : '-'}</td>
+    <td>${s ? html`<div class="small num">${fmtShort(s.at)}</div>
+      ${s.site ? html`<div>앱 <a href=${s.site.url} target="_blank" rel="noopener noreferrer">${s.site.url.replace(/^https:\/\//, '')}</a></div>
+        <${CheckNote} check=${s.site.check} />` : ''}
+      ${s.repo ? html`<div>GitHub <a href=${s.repo.url} target="_blank" rel="noopener noreferrer">${s.repo.url.replace('https://github.com/', '')}</a> · <span class="mono small">${s.repo.sha.slice(0, 7)}</span></div>
+        <${CheckNote} check=${s.repo.check} />` : ''}
+      <details><summary class="small">앱 소개·만든 과정</summary>
+        <dl class="kv" style="margin-top:6px;max-width:36em;white-space:normal"><dt>앱 소개</dt><dd>${s.intro}</dd><dt>만든 과정</dt><dd>${s.process}</dd></dl>
+      </details>` : '-'}</td>
+    <td class="small">${s && s.repo ? html`<a href=${s.repo.file} target="_blank" rel="noopener noreferrer">${sizeText(s.repo.size)}</a>` : '-'}</td>
   </tr>`;
 }
 
@@ -178,7 +191,7 @@ export function PrelimTab({ reload }) {
         <thead><tr><th>팀</th><th>진행</th><th>세션</th><th>시작</th><th>마감</th><th>과제</th><th>마지막 제출</th><th>보관본</th></tr></thead>
         <tbody>${shown.map((t) => html`<${TeamRow} key=${t.id} t=${t} />`)}</tbody>
       </table></div>
-      <p class="small muted" style="margin:0">심사는 각 팀 마지막 제출의 보관본(제출 순간 커밋의 압축 파일, 신청서 폴더)으로만 합니다. 마감은 마감 시각의 그 분이 끝날 때까지입니다.</p>
+      <p class="small muted" style="margin:0">심사는 각 팀의 마지막 제출(앱 주소, 앱 소개·만든 과정, GitHub 를 낸 팀은 제출 순간 커밋의 보관본 — 신청서 폴더)로만 합니다. 마감은 마감 시각의 그 분이 끝날 때까지입니다.</p>
     </section>
 
     <${JudgePanel} reload=${reload} />

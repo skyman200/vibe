@@ -90,8 +90,9 @@ async function fetchJson(url, opts, ms) {
 const PUBLIC_TIMEOUT_MS = 8000;
 const POST_TIMEOUT_MS = 60000;
 /**
- * 오래 걸릴 수 있는 요청: 예선 제출은 GitHub 에서 저장소 압축 파일(최대 30MB)을 받아 드라이브에 보관한 뒤 답하고,
- * 예선 심사 묶음의 팀 하나는 그 팀의 보관본을 읽어 개인정보를 가린 뒤 답한다.
+ * 오래 걸릴 수 있는 요청: 예선 제출은 앱 주소를 열어 확인하고, GitHub 저장소를 냈으면 압축 파일(최대 30MB)을 받아
+ * 드라이브에 보관한 뒤 답하고, 예선 심사 묶음의 팀 하나는 그 팀의 보관본을 읽어 개인정보를 가린 뒤 답한다. 본선 코드 심사
+ * 묶음의 팀 하나는 마감 커밋의 압축 파일(최대 30MB)을 GitHub 에서 받아 가린 뒤 답한다.
  */
 const SLOW_POST_MS = { prelimSubmit: 240000, adminPrelimBundleTeam: 180000 };
 
@@ -292,6 +293,28 @@ export function untilText(v, now = Date.now()) {
   const hours = Math.floor(min / 60);
   if (hours < 48) return `${hours}시간 남음`;
   return `D-${Math.ceil(ms / 86400e3)}`;
+}
+
+/**
+ * 서버 시각 − 이 기기 시각(ms). 새 화면 자료(서버 시각 now)를 받을 때마다 다시 잰다 — 휴대폰·TV 시계가 틀려도
+ * 남은 시간이 맞다(예선 48시간·본선 마감 카운트다운).
+ */
+export function useServerOffset(now) {
+  const ref = useRef({ now: null, offset: 0 });
+  if (ref.current.now !== now) ref.current = { now, offset: toMs(now) - Date.now() };
+  return ref.current.offset;
+}
+
+/** 마감을 받는 마지막 순간(ms): 마감 시각의 그 분이 끝날 때까지(서버와 같은 규칙). */
+export function endMs(deadline) {
+  return toMs(deadline) + 59999;
+}
+
+/** 남은 시간 '3시간 05분 09초' */
+export function remainText(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const two = (n) => String(n).padStart(2, '0');
+  return `${Math.floor(s / 3600)}시간 ${two(Math.floor((s % 3600) / 60))}분 ${two(s % 60)}초`;
 }
 
 /* ── 입력 형식(서버와 같은 규칙, 서버가 최종 판단) ── */

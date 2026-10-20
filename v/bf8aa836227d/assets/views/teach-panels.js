@@ -12,7 +12,7 @@ export function useRoster() {
   const load = async () => {
     try {
       const b = await api('board');
-      setTeams(b.teams.filter((t) => t.column === 'applied' || t.column === 'selected' || t.column === 'waitlist' || t.column === 'building' || t.column === 'submitted'));
+      setTeams(b.teams.filter((t) => ['applied', 'selected', 'waitlist', 'building', 'registered', 'submitted'].includes(t.column)));
       setError('');
     } catch (err) {
       setError(err.message);
@@ -55,7 +55,7 @@ export function Roster({ roster, checked, setChecked }) {
 export function Structure() {
   return html`<div class="con-structure">
     <div class="table-box"><table class="dtable">
-      <thead><tr><th>부분</th><th>파일</th><th>하는 일</th><th>돌아가는 곳</th></tr></thead>
+      <thead><tr><th>부분</th><th>어디</th><th>하는 일</th><th>돌아가는 곳</th></tr></thead>
       <tbody>${STRUCTURE.map((r) => html`<tr>${r.map((c, i) => html`<td class="wrap-cell${i === 0 ? ' b' : ''}">${c}</td>`)}</tr>`)}</tbody>
     </table></div>
     <p class="small" style="margin:10px 0 6px"><b>한 번의 흐름</b> — <${Rich} text=${FLOW} /></p>

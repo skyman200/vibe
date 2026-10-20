@@ -1,6 +1,8 @@
 // 공개 참가현황 칸반. 서버가 학번·연락처·이메일을 보내지 않으므로 화면에는 흐린 자리표시만 있다.
-import { html, useState, useEffect, useApp, api, useInterval, fmtShort } from '../lib.js';
+// 대회 모드에는 결과물 제출 마감까지 남은 시간과 지금·다음 일정을 위에 두고, #/board?tv=1 은 행사장 TV 용 현황판(board-tv.js)이다.
+import { html, useState, useEffect, useApp, api, useInterval, fmtShort, fmtWhen, toMs } from '../lib.js';
 import { Modal, Slots, Veil } from '../ui.js';
+import { TvBoard, NowNext, useSkew, hms } from './board-tv.js';
 
 const SERIES = ['공학계열', '보건계열', '자연과학계열', '인문사회계열', '예체능계열'];
 const COL_NOTE = {
@@ -8,8 +10,14 @@ const COL_NOTE = {
   applied: '4인 1조로 신청서를 낸 팀입니다.',
   selected: '진리관 컨벤션홀 본선에 참가할 팀입니다.',
   waitlist: '본선 진출 팀에 결원이 생기면 차례로 안내합니다.',
-  building: '결과물을 아직 내지 않은 팀입니다.',
-  submitted: 'GitHub 저장소를 제출한 팀입니다.',
+  building: '아직 GitHub 저장소를 등록하지 않은 팀입니다.',
+  registered: '저장소를 등록하고 개발 중인 팀입니다. 마감 당일 팀원 모두 만족도 조사를 마치면 최종 제출합니다.',
+  submitted: '팀원 모두 만족도 조사를 마치고 최종 제출한 팀입니다. 마감 전 커밋은 계속 반영됩니다.',
+};
+/** 결과물 제출이 마감된 뒤의 칸 설명 */
+const COL_NOTE_CLOSED = {
+  building: '마감까지 최종 제출하지 않은 팀입니다.',
+  submitted: '최종 제출한 팀입니다. 마감 시각의 커밋으로 심사합니다.',
 };
 
 function roleText(role) {
@@ -61,7 +69,34 @@ export function PublicSheet({ t, size, onClose }) {
   <//>`;
 }
 
+/** 대회 모드 머리: 결과물 제출 마감까지 남은 시간(1초마다), 지금·다음 일정, 현황판(TV) 링크. */
+function ContestStrip({ data }) {
+  const [, setTick] = useState(0);
+  const skew = useSkew(data.phase.now);
+  const ms = Date.now() + skew;
+  // 공개 참가현황은 캐시를 거쳐 조금 늦을 수 있어 열림·마감은 답의 단계(phase.submit) 대신 시각으로 정한다
+  const left = toMs(data.contest.deadline) + 59999 - ms;
+  const before = ms < toMs(data.contest.open);
+  const open = !before && left > 0;
+  useInterval(() => setTick((n) => n + 1), 1000);
+  return html`<div class="contest-strip">
+    <div class=${`countdown${open ? (left < 3600e3 ? ' soon' : '') : ' over'}`} role="timer">
+      <span class="small">${open ? '결과물 제출 마감까지' : before ? '결과물 제출 시작' : '결과물 제출'}</span>
+      <b class="num">${open ? hms(left) : before ? fmtWhen(data.contest.open) : '마감되었습니다'}</b>
+      <span class="small num">마감 ${fmtWhen(data.contest.deadline)}</span>
+    </div>
+    <${NowNext} ms=${ms} cls="contest-plan" />
+    <a class="btn btn-sm" href="#/board?tv=1">현황판 크게 띄우기</a>
+  </div>`;
+}
+
+/** 공개 참가현황. #/board?tv=1 이면 현황판(TV). 같은 화면에서 주소만 바뀌어도 서로 다른 화면으로 새로 그린다. */
 export function BoardView() {
+  const { route } = useApp();
+  return route.query.get('tv') === '1' ? html`<${TvBoard} />` : html`<${KanbanBoard} />`;
+}
+
+function KanbanBoard() {
   const { config } = useApp();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -99,6 +134,8 @@ export function BoardView() {
   const columns = data ? data.columns.filter((c) => !(closed && c.key === 'forming')) : [];
   const AWARD_ORDER = { 금상: 0, 은상: 1, 동상: 2 };
   const winners = data ? data.teams.filter((t) => t.award).sort((a, b) => AWARD_ORDER[a.award] - AWARD_ORDER[b.award] || a.rank - b.rank) : [];
+  const count = (k) => data.teams.filter((t) => t.column === k).length;
+  const notes = contest && ph.submit === 'closed' ? { ...COL_NOTE, ...COL_NOTE_CLOSED } : COL_NOTE;
 
   return html`<div class="wrap-wide page">
     <div class="page-h">
@@ -106,7 +143,9 @@ export function BoardView() {
         <h1>${contest ? '대회 진행 현황' : '참가현황'}</h1>
         <p class="num">
           ${contest
-            ? html`본선 ${ph.selectedTeams}팀 · 결과물 제출 ${data.teams.filter((t) => t.column === 'submitted').length}팀`
+            ? html`본선 ${ph.selectedTeams}팀 · ${ph.submit === 'closed'
+              ? `제출 완료 ${count('submitted')}팀 · 미제출 ${count('building')}팀`
+              : `저장소 등록 ${count('registered') + count('submitted')}팀 · 최종 제출 ${count('submitted')}팀`}`
             : html`접수 완료 <b>${ph.appliedTeams}팀</b>(${ph.applicants}명 / 정원 ${ph.applicantCap}명)${closed ? '' : ` · 팀 구성 중 ${ph.formingTeams}팀`} · 본선 ${ph.selectTarget}팀`}
         </p>
       </div>
@@ -115,6 +154,8 @@ export function BoardView() {
         <button class="btn btn-sm" onClick=${load}>새로 고침</button>
       </div>
     </div>
+
+    ${contest && data.contest ? html`<${ContestStrip} data=${data} />` : ''}
 
     ${winners.length ? html`<div class="box box-ink" style="margin-bottom:24px">
       <p class="overline">시상 결과</p>
@@ -138,7 +179,7 @@ export function BoardView() {
         const cards = data.teams.filter((t) => t.column === col.key && visible(t));
         return html`<section class=${`col${col.key === 'forming' ? ' dashed' : ''}`} aria-label=${col.label}>
           <div class="col-h"><h3>${col.label}</h3><span class="count">${cards.length}${cards.length !== col.count ? html`<small> / ${col.count}</small>` : ''}</span></div>
-          <div class="col-note">${COL_NOTE[col.key] || ''}</div>
+          <div class="col-note">${notes[col.key] || ''}</div>
           <div class="cards">
             ${cards.length ? cards.map((t) => html`<${Card} key=${t.key} t=${t} size=${size} onOpen=${setOpen} />`)
               : html`<div class="empty-col">${needle || series ? '조건에 맞는 팀이 없습니다.' : '아직 없습니다.'}</div>`}

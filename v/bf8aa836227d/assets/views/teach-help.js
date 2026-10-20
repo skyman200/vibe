@@ -49,7 +49,7 @@ export function HelpPanel() {
     <div class="con-help-b">
       <div class="con-help-tabs" role="tablist">${TABS.map(([k, label]) => html`<button type="button" role="tab" class=${`link-btn${tab === k ? ' on' : ''}`} aria-selected=${tab === k ? 'true' : 'false'}
         data-help-tab=${k} onClick=${() => setTab(k)}>${label}</button>`)}
-        ${tab !== 'help' ? html`<input class="input" type="search" aria-label="도움말 검색" placeholder="찾을 말(예: 포크, 세션 코드)" value=${q} onInput=${(e) => setQ(e.target.value)} />` : ''}
+        ${tab !== 'help' ? html`<input class="input" type="search" aria-label="도움말 검색" placeholder="찾을 말(예: 캔버스, 공유 링크)" value=${q} onInput=${(e) => setQ(e.target.value)} />` : ''}
       </div>
       ${tab === 'help' ? html`<${HelpScope} />` : tab === 'faq' ? html`<${Faq} q=${q} />` : html`<${Trouble} q=${q} />`}
     </div>
