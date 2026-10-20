@@ -8,6 +8,7 @@ import {
 import { TeamFields, checkTeam } from './apply.js';
 import { PrelimTab } from './admin-prelim.js';
 import { FinalsTab } from './admin-finals.js';
+import { CodeJudgePanel } from './admin-code-judge.js';
 
 const COLUMNS = [
   ['draft', '팀 구성 중'],
@@ -490,9 +491,10 @@ function TeamDrawer({ team, data, onClose, reload }) {
         <div class="panel-h"><h2>코드 심사(50)</h2><span class="small muted">${team.code.total === null ? '미입력' : `${team.code.total}점`}</span></div>
         <div class="grid-4">
           ${data.rubric.code.map((c) => html`<${Field} label=${`${c.label} (${c.max})`} id=${`adm-${c.key}`}>
-            <input id=${`adm-${c.key}`} class="input num" inputmode="numeric" value=${code[c.key]} onInput=${(e) => setCode((s) => ({ ...s, [c.key]: e.target.value.replace(/[^0-9]/g, '') }))} />
+            <input id=${`adm-${c.key}`} class="input num" inputmode="decimal" maxlength="4" value=${code[c.key]} onInput=${(e) => setCode((s) => ({ ...s, [c.key]: e.target.value.replace(/[^0-9.]/g, '') }))} />
           <//>`)}
         </div>
+        <p class="small muted" style="margin:0">AI 코드 심사 점수는 [심사] → 코드 심사에서 올립니다(항목별 3회 평균, 소수 첫째 자리). 여기서 고치면 출처가 '직접 입력'이 됩니다(같은 AI 채점을 다시 올려도 그대로 남고, 이 팀을 다시 채점해 올리면 새 AI 점수로 바뀝니다).</p>
         <${Field} label="근거" id="adm-codeNote"><textarea id="adm-codeNote" class="textarea" maxlength="1000" value=${code.codeNote} onInput=${(e) => setCode((s) => ({ ...s, codeNote: e.target.value }))}></textarea><//>
         <div><button class="btn btn-sm btn-primary" disabled=${busy} onClick=${() => call('adminCodeScore', Object.fromEntries(Object.entries(code).map(([k, v]) => [k, k === 'codeNote' ? v : v === '' ? '' : Number(v)])), '코드 심사 점수를 저장했습니다.')}>점수 저장</button></div>
         <div class="small muted">대면 심사: ${team.live.count}/${data.judges.length}명 채점${team.live.avg !== null ? ` · 평균 ${team.live.avg.toFixed(2)}점` : ''}
@@ -549,34 +551,10 @@ function PeopleTab({ data, openTeam }) {
 
 /* ───────────── 심사 ───────────── */
 
-function buildPrompt(data) {
-  const selected = data.teams.filter((t) => t.status === 'selected').sort((a, b) => (Number(a.presentOrder) || 999) - (Number(b.presentOrder) || 999));
-  const rubric = data.rubric.code.map((c) => `- ${c.label}(${c.max}점): ${c.desc}`).join('\n');
-  const teams = selected.map((t, i) => `${i + 1}. teamId=${t.id} / 팀명=${t.name} / 저장소=${t.repo.url || '(미제출)'} / 기준 커밋=${t.repo.pinnedSha || '(기록 전 — 마감 커밋 기록 후 사용)'}`).join('\n');
-  return `당신은 ${data.settings.eventName} 코드 심사위원입니다. 아래 모든 팀을 똑같은 기준으로 평가하세요.
-
-[평가 규칙]
-- 각 저장소를 내려받아 '기준 커밋'으로 체크아웃한 상태만 봅니다(git checkout <커밋>). 마감 이후 커밋은 반영하지 않습니다.
-- 커밋 횟수는 점수에 반영하지 않습니다. API 키 등 비밀정보가 저장소에 있으면 코드 품질에서 감점합니다.
-- README 필수 항목: 프로젝트 개요, 주요 기능, 기술 스택, 실행 방법, AI 활용 내역(사용 도구·주요 프롬프트), 팀원 역할.
-
-[평가 항목 — 합계 50점, 정수]
-${rubric}
-
-[팀 목록]
-${teams}
-
-[출력] 설명 없이 JSON 배열만 출력합니다.
-[{"teamId":"...","teamName":"...","tech":0,"ai":0,"quality":0,"docs":0,"note":"항목별 근거를 3줄 이내로"}]`;
-}
-
 function JudgingTab({ data, reload, openTeam }) {
   const { notify } = useApp();
   const [name, setName] = useState('');
   const [issued, setIssued] = useState(null);
-  const [bulk, setBulk] = useState(null);
-  const [bulkResult, setBulkResult] = useState(null);
-  const [showPrompt, setShowPrompt] = useState(false);
   const [busy, run] = useBusy();
   const selected = data.teams.filter((t) => t.status === 'selected').sort((a, b) => (Number(a.presentOrder) || 999) - (Number(b.presentOrder) || 999));
   const r = data.results;
@@ -598,51 +576,6 @@ function JudgingTab({ data, reload, openTeam }) {
     const res = await call('adminJudgeAdd', { name }, '심사위원을 추가했습니다.');
     if (res) { setIssued(res); setName(''); }
   };
-  const pinned = (res) => notify(res.pins.length
-    ? `마감 커밋 기록 ${res.pins.filter((p) => p.ok).length}/${res.pins.length}팀`
-    : '새로 기록할 팀이 없습니다(모두 마감 시각에 기록됨).');
-  const pin = () => run(async () => {
-    try {
-      pinned(await api('adminPin', { token: token() }));
-    } catch (err) {
-      if (err.code !== 'EARLY') { notify(err.message, 'err'); return; }
-      if (!confirm('아직 제출 마감 전입니다. 지금의 최신 커밋을 임시로 기록할까요? 마감 시각에 자동으로 다시 기록합니다.')) return;
-      try {
-        pinned(await api('adminPin', { token: token(), force: true }));
-      } catch (e) {
-        notify(e.message, 'err');
-      }
-    }
-    reload();
-  });
-  const fixPin = () => run(async () => {
-    try {
-      const res = await api('adminPinSchedule', { token: token() });
-      const okay = res.deadlinePin.state === 'scheduled';
-      notify(okay ? `마감 커밋 자동 기록을 ${fmtWhen(res.deadlinePin.at)}에 예약했습니다.` : '예약하지 못했습니다. 잠시 후 다시 시도해 주세요.', okay ? 'ok' : 'err');
-    } catch (err) {
-      notify(err.message, 'err');
-    }
-    reload();
-  });
-  const importBulk = () => run(async () => {
-    let rows;
-    try {
-      const text = bulk.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '');
-      rows = JSON.parse(text);
-    } catch (e) {
-      setBulkResult({ errors: ['JSON 형식이 아닙니다. 대괄호 [ ] 로 감싼 배열인지 확인하세요.'] });
-      return;
-    }
-    try {
-      const res = await api('adminCodeScoreBulk', { token: token(), rows });
-      setBulkResult(res);
-      notify(`${res.updated}팀 점수를 반영했습니다.`);
-      reload();
-    } catch (err) {
-      setBulkResult({ errors: [err.message] });
-    }
-  });
   const [flags, setFlags] = useState({ scoringLocked: data.settings.scoringLocked === 'Y', resultsPublished: data.settings.resultsPublished === 'Y' });
   const toggle = async (key, value, done) => {
     setFlags((f) => ({ ...f, [key]: value }));
@@ -663,28 +596,7 @@ function JudgingTab({ data, reload, openTeam }) {
       </form>
     </section>
 
-    <section class="panel">
-      <div class="panel-h"><h2>코드 심사(50)</h2>
-        <div class="btn-row">
-          <button class="btn btn-sm" disabled=${busy} onClick=${pin} title="마감 시각에 자동으로 기록합니다. 기록이 없는 팀만 지금 채웁니다.">마감 커밋 기록</button>
-          <button class="btn btn-sm" onClick=${() => setShowPrompt(true)}>AI 심사 지시문</button>
-          <button class="btn btn-sm" onClick=${() => { setBulk(''); setBulkResult(null); }}>점수 JSON 붙여넣기</button>
-        </div>
-      </div>
-      <${PinSchedule} pin=${data.deadlinePin} busy=${busy} onFix=${fixPin} />
-      <div class="table-box"><table class="dtable">
-        <thead><tr><th>순서</th><th>팀</th><th>저장소</th><th>고정 커밋</th>${data.rubric.code.map((c) => html`<th>${c.label}</th>`)}<th>코드 합계</th><th>대면 평균</th></tr></thead>
-        <tbody>${selected.map((t) => html`<tr>
-          <td class="num">${t.presentOrder || '-'}</td>
-          <td><button class="link-btn" onClick=${() => openTeam(t.id)}>${t.name}</button></td>
-          <td>${t.repo.url ? html`<a href=${t.repo.url} target="_blank" rel="noopener">${t.repo.url.replace('https://github.com/', '')}</a>` : html`<span class="muted">미제출</span>`}</td>
-          <td class="mono small">${t.repo.pinnedSha ? t.repo.pinnedSha.slice(0, 8) : '-'}</td>
-          ${data.rubric.code.map((c) => html`<td class="num">${t.code[c.key] === null ? '-' : t.code[c.key]}</td>`)}
-          <td class="num"><b>${t.code.total === null ? '-' : t.code.total}</b></td>
-          <td class="num">${t.live.avg === null ? '-' : `${t.live.avg.toFixed(2)} (${t.live.count})`}</td>
-        </tr>`)}</tbody>
-      </table></div>
-    </section>
+    <${CodeJudgePanel} pin=${data.deadlinePin} reload=${reload} openTeam=${openTeam} stamp=${data} />
 
     <section class="panel">
       <div class="panel-h"><h2>최종 결과</h2>
@@ -710,21 +622,6 @@ function JudgingTab({ data, reload, openTeam }) {
       <p class="codeline">${issued.code}</p>
       <div class="btn-row"><button class="btn btn-primary" onClick=${async () => notify((await copyText(`${location.origin}${location.pathname}#/judge  코드: ${issued.code}`)) ? '주소와 코드를 복사했습니다.' : '복사하지 못했습니다.')}>주소와 코드 복사</button></div>
     <//>` : ''}
-    ${showPrompt ? html`<${Modal} title="AI 코드 심사 지시문" onClose=${() => setShowPrompt(false)} wide>
-      <p class="small muted">Claude Code 등에 그대로 붙여 넣으면 모든 팀을 같은 기준으로 분석해 JSON을 돌려줍니다. 결과는 [점수 JSON 붙여넣기]로 반영하세요.</p>
-      <pre class="prompt">${buildPrompt(data)}</pre>
-      <div class="btn-row"><button class="btn btn-primary" onClick=${async () => notify((await copyText(buildPrompt(data))) ? '지시문을 복사했습니다.' : '복사하지 못했습니다.')}>복사</button></div>
-    <//>` : ''}
-    ${bulk !== null ? html`<${Modal} title="코드 심사 점수 붙여넣기" onClose=${() => setBulk(null)} wide>
-      <p class="small muted">형식: [{"teamId" 또는 "teamName", "tech", "ai", "quality", "docs", "note"}] — 행마다 검사해 통과한 팀만 반영합니다.</p>
-      <textarea class="textarea mono" style="min-height:220px" value=${bulk} onInput=${(e) => setBulk(e.target.value)}></textarea>
-      ${bulkResult ? html`<div class=${`notice ${bulkResult.errors && bulkResult.errors.length ? 'warn' : 'ok'}`} style="margin-top:10px">
-        ${bulkResult.updated !== undefined ? html`<div>${bulkResult.updated}팀 반영</div>` : ''}
-        ${(bulkResult.errors || []).map((e) => html`<div>${e}</div>`)}
-      </div>` : ''}
-      <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" disabled=${busy || !bulk.trim()} onClick=${importBulk}>반영</button></div>
-    <//>` : ''}
-    <p class="small muted">팀 이름을 누르면 상세 화면에서 코드 심사 점수를 한 팀씩 입력할 수도 있습니다.</p>
   </div>`;
 }
 
@@ -737,14 +634,6 @@ const SETTING_GROUPS = [
   ['시상 팀 수', [['awardGold', '금상', 'number'], ['awardSilver', '은상', 'number'], ['awardBronze', '동상', 'number']]],
   ['문의처', [['contactName', '문의처', 'text'], ['contactPhone', '전화', 'text'], ['contactEmail', '이메일', 'text']]],
 ];
-
-/** 마감 커밋 자동 기록(마감 1초 뒤 트리거) 예약 상태. 예약이 빠졌으면 마감 시각의 커밋을 기록할 수 없으므로 크게 알린다. */
-function PinSchedule({ pin, busy, onFix }) {
-  if (pin.state === 'passed') return '';
-  if (pin.state === 'scheduled') return html`<p class="small muted" style="margin:0">마감 커밋은 ${fmtWhen(pin.at)}에 자동으로 기록합니다.</p>`;
-  return html`<div class="notice bad" role="alert"><b>마감 커밋 자동 기록이 예약되어 있지 않습니다.</b> 이대로면 마감 시각의 커밋을 기록하지 못합니다.
-    <button type="button" class="link-btn" disabled=${busy} onClick=${onFix}>다시 예약</button></div>`;
-}
 
 /** 전체 파기 결과: 법적 파기 기록이라 사라지는 알림 대신 화면에 남긴다. 실패한 단계는 직접 할 일과 함께 보여 준다. */
 function PurgeResult({ res }) {
