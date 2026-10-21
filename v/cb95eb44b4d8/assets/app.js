@@ -8,6 +8,7 @@ import { BoardView } from './views/board.js';
 import { MeView } from './views/me.js';
 import { JudgeView } from './views/judge.js';
 import { TeachView } from './views/teach.js';
+import { MentorView } from './views/mentor.js';
 import { LessonView } from './views/lesson.js';
 import { AdminView } from './views/admin.js';
 import { PrivacyView } from './views/privacy.js';
@@ -20,7 +21,7 @@ const NAV = [
   ['me', '#/me', '내 신청'],
 ];
 
-/** 화면 모드: 처음 들어오면 신청자 화면, 머리의 전환 단추로 심사위원·관리자 화면(각자 코드로 로그인). 강사 화면(#/teach)은 꼬리의 링크로. */
+/** 화면 모드: 처음 들어오면 신청자 화면, 머리의 전환 단추로 심사위원·관리자 화면(각자 코드로 로그인). 강사(#/teach)·멘토(#/mentor) 화면은 꼬리의 링크로. */
 const MODES = [
   ['participant', '#/', '신청자'],
   ['judge', '#/judge', '심사위원'],
@@ -28,14 +29,14 @@ const MODES = [
 ];
 
 function modeOf(routeName) {
-  return routeName === 'judge' || routeName === 'admin' || routeName === 'teach' ? routeName : 'participant';
+  return ['judge', 'admin', 'teach', 'mentor'].includes(routeName) ? routeName : 'participant';
 }
 
 function Header({ route }) {
   const mode = modeOf(route.name);
   const current = route.name === 'join' ? 'apply' : route.name;
   return html`<header class="top">
-    <div class=${mode === 'admin' ? 'top-in wide' : 'top-in'}>
+    <div class=${mode === 'admin' || mode === 'mentor' ? 'top-in wide' : 'top-in'}>
       <a class="brand" href="#/" aria-label="DIT 바이브코딩 해커톤 처음으로">
         <span class="brand-mark">DIT</span>
         <span class="brand-name"><span class="brand-long">바이브코딩 </span>해커톤</span>
@@ -63,6 +64,7 @@ function Footer({ config }) {
         <a href="#/privacy">개인정보 처리 안내</a>
         <a href="#/lesson">교육 따라 하기</a>
         <a href="#/teach">강사 화면</a>
+        <a href="#/mentor">멘토 화면</a>
       </nav>
     </div>
   </footer>`;
@@ -134,6 +136,7 @@ function bootConfig() {
 
 function App() {
   const route = useRoute();
+  const tv = route.name === 'board' && route.query.get('tv') === '1';
   const [config, setConfig] = useState(bootConfig);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
@@ -174,10 +177,10 @@ function App() {
   useEffect(() => {
     const titles = {
       home: '안내', apply: '팀 만들기', join: '팀 합류', board: '참가현황', me: '내 신청',
-      judge: '심사', teach: '강사', lesson: '교육 따라 하기', admin: '관리자', privacy: '개인정보 처리 안내',
+      judge: '심사', teach: '강사', mentor: '멘토', lesson: '교육 따라 하기', admin: '관리자', privacy: '개인정보 처리 안내',
     };
-    document.title = `${titles[route.name] || '안내'} — DIT 바이브코딩 해커톤 2026`;
-  }, [route.name]);
+    document.title = `${tv ? '현황판' : titles[route.name] || '안내'} — DIT 바이브코딩 해커톤 2026`;
+  }, [route.name, tv]);
 
   let view;
   // 첫 화면(안내)은 설정을 기다리지 않고 바로 그린다(제목·버튼은 고정 문구, 행사 정보는 받는 대로 채움).
@@ -189,15 +192,17 @@ function App() {
   else if (route.name === 'me') view = html`<${MeView} />`;
   else if (route.name === 'judge') view = html`<${JudgeView} />`;
   else if (route.name === 'teach') view = html`<${TeachView} />`;
+  else if (route.name === 'mentor') view = html`<${MentorView} />`;
   else if (route.name === 'lesson') view = html`<${LessonView} />`;
   else if (route.name === 'admin') view = html`<${AdminView} />`;
   else if (route.name === 'privacy') view = html`<${PrivacyView} />`;
   else view = html`<${HomeView} />`;
 
+  // 현황판(#/board?tv=1, 행사장 TV)은 머리·꼬리 없이 화면 전체를 쓴다
   return html`<${AppCtx.Provider} value=${{ config, reloadConfig: loadConfig, notify, route }}>
-    <${Header} route=${route} />
+    ${tv ? '' : html`<${Header} route=${route} />`}
     <main id="main"><${Boundary} key=${route.name} where="view">${view}<//></main>
-    <${Footer} config=${config} />
+    ${tv ? '' : html`<${Footer} config=${config} />`}
     <${Toast} toast=${toast} />
   <//>`;
 }
@@ -216,7 +221,7 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 /** index.html 이 주소만 보고 미리 그린 안내 화면을 숨기는(html.deep) 화면 — 그 스크립트의 목록과 같다(test/index-html.test.mjs). */
-const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy', 'teach', 'lesson'];
+const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy', 'teach', 'mentor', 'lesson'];
 
 // 다른 사이트가 이 화면을 틀(iframe) 안에 넣어 클릭을 가로채지 못하게 한다(GitHub Pages 는 헤더를 못 붙이므로 스크립트로).
 const root = document.getElementById('app');

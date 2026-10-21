@@ -20,11 +20,14 @@ function remember(on) {
   } catch (e) { /* 저장소가 없으면 이번만 */ }
 }
 
-/** 관리자 토큰 → 채점 도우미 토큰(모듈에 둔다 — 화면을 다시 열어도 다시 받지 않는다). fresh: 도우미가 받지 않았으면 새로. */
+/**
+ * 관리자 토큰 → 채점 도우미 토큰(모듈에 둔다 — 화면을 다시 열어도 다시 받지 않는다). 같은 관리자 토큰이면 서버가 늘 같은 토큰을 주므로
+ * (만료·관리자 코드 묶음이 같다) 도우미가 그 토큰을 거절하면 관리자 로그인이 끝난 것이다.
+ */
 let minted = { admin: '', token: '' };
-async function helperToken(fresh) {
+async function helperToken() {
   const admin = session.get('admin');
-  if (!fresh && minted.token && minted.admin === admin) return minted.token;
+  if (minted.token && minted.admin === admin) return minted.token;
   const res = await api('adminFinalsHelperToken', { token: admin });
   minted = { admin, token: res.token };
   return res.token;
@@ -115,21 +118,16 @@ export function useJudgeHelper({ onAuth, onSettled }) {
       if (seen !== 'ok') { setLink(seen); return { ok: false, code: seen }; }
       ready.current = true;
     }
-    let data;
-    for (const fresh of [false, true]) {
-      let token;
-      try {
-        token = await helperToken(fresh);
-      } catch (err) {
-        if (!live()) return { ok: false, code: 'GONE' };
-        if (err.code === 'AUTH') hooks.current.onAuth();
-        else refuse(err.message);
-        return { ok: false, code: err.code || 'ERROR', error: err.message };
-      }
-      data = await post(path, body, ms, token);
-      // 도우미가 그 토큰을 받지 않았으면(만료·관리자 코드 변경) 한 번 새로 받아 다시 — 거절된 요청은 아무것도 하지 않았다
-      if (data.code !== 'AUTH') break;
+    let token;
+    try {
+      token = await helperToken();
+    } catch (err) {
+      if (!live()) return { ok: false, code: 'GONE' };
+      if (err.code === 'AUTH') hooks.current.onAuth();
+      else refuse(err.message);
+      return { ok: false, code: err.code || 'ERROR', error: err.message };
     }
+    const data = await post(path, body, ms, token);
     if (!live()) return data;
     if (data.code === 'DOWN' || data.code === 'SLOW' || data.code === 'ODD') {
       ready.current = false;

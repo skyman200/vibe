@@ -75,7 +75,14 @@ function Console({ data, busy, call, load: reload, logout, state, message }) {
     if (action === 'done') setDone({ ...done, [id]: { ...(done[id] || {}), __done: true } });
     else setDone({ ...done, [id]: { ...(done[id] || {}), __done: false } });
   };
-  const start = () => { setBefore(data.sessions.map((s) => s.id)); setStartedAt(Date.now()); if (!(done.prep && done.prep.__done)) go('prep', 'done'); };
+  const start = () => {
+    setBefore(data.sessions.map((s) => s.id)); setStartedAt(Date.now()); if (!(done.prep && done.prep.__done)) go('prep', 'done');
+    // 운영자 디스코드 알림(gas/Prelim.js apiTeachStart_). 교육은 기다리지 않는다 — 못 보내도 진행에는 지장이 없다.
+    api('teachStart', { token: session.get('teach') }).catch((err) => {
+      if (err.code === 'AUTH') logout(EXPIRED);   // 진행 상태는 이 탭에 남는다 — 다시 로그인하면 이어서 한다
+      else notify('운영자에게 교육 시작 알림을 보내지 못했습니다. 교육은 그대로 진행하세요.');
+    });
+  };
   // 새 회차: 시계·끝낸 칸·출석·메모를 모두 비운다(지난 회차의 출석이 이번 [결과 복사]에 섞이면 안 된다)
   const reset = () => { setStartedAt(0); setDone({}); setChecked({}); setNotes(''); setBefore([]); setResultText(''); save({}); };
 

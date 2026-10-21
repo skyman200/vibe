@@ -12,7 +12,7 @@ export function useRoster() {
   const load = async () => {
     try {
       const b = await api('board');
-      setTeams(b.teams.filter((t) => t.column === 'applied' || t.column === 'selected' || t.column === 'waitlist' || t.column === 'building' || t.column === 'submitted'));
+      setTeams(b.teams.filter((t) => ['applied', 'selected', 'waitlist', 'building', 'registered', 'submitted'].includes(t.column)));
       setError('');
     } catch (err) {
       setError(err.message);

@@ -56,8 +56,8 @@ function JudgeControls({ st, board, busy, act, forget }) {
   const fails = failures(st.work);
   const canJudge = !busy && !st.busy && !board.open && !board.locked;
   return html`
-    <p class="small muted" style="margin:6px 0 0">채점 도우미${st.practice ? '(연습)' : ''}: ${st.server} · 채점 폴더 <code class="ic">${st.folder}</code> · ${st.gjc.ok === false ? html`<b class="flag">${st.gjc.text}</b>` : st.gjc.text}
-      · <button type="button" class="link-btn small" onClick=${forget}>이 브라우저에서 연결 그만두기</button></p>
+    <p class="small muted" style="margin:6px 0 0">채점 도우미${st.practice ? '(연습)' : ''}: ${st.server} · 채점 폴더 <code class="ic">${st.folder}</code> · ${st.gjc.ok === false ? html`<b class="flag">${st.gjc.text}</b>` : st.gjc.text} · <button
+      type="button" class="link-btn small" onClick=${forget}>이 브라우저에서 연결 그만두기</button></p>
     ${st.error ? html`<div class="notice bad" role="alert">${st.error}</div>` : ''}
     ${st.notice ? html`<div class="notice ok" role="status">${st.notice}</div>` : ''}
     <div class="btn-row">
