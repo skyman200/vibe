@@ -290,7 +290,7 @@ export function JoinView({ route }) {
         <p>${full ? '4명이 모두 모였습니다. 팀장에게 「내 신청」에서 신청서를 제출해 달라고 알려 주세요.' : `팀원 ${config.teamSize - joined.team.count}명이 더 합류해야 제출할 수 있습니다.`}</p></div></div>
       <div class="panel" style="max-width:560px">
         <${Slots} count=${joined.team.count} />
-        <p class="small muted">내 정보는 학번과 방금 정한 비밀번호로 「내 신청」에서 확인·수정·철회할 수 있습니다.</p>
+        <p class="small muted">내 정보는 학번과 방금 정한 비밀번호로 「내 신청」에서 확인·수정할 수 있습니다. 신청 철회는 접수 기간에만 직접 할 수 있고, 그 뒤에는 문의처로 연락해 주세요.</p>
         <a class="btn btn-primary" href="#/me" style="justify-self:start">내 신청으로 가기</a>
       </div>
     </div>`;

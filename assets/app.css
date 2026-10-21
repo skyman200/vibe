@@ -371,6 +371,10 @@ button { font: inherit; }
 .jsteps .btn-row { margin-top: 8px; }
 .cmd { font: 13px/1.5 var(--mono); background: var(--sunk); border-radius: 6px; padding: 6px 10px; word-break: break-all; }
 .wrap-cell { white-space: normal; max-width: 16em; }
+.ai-runs { display: flex; gap: 10px; white-space: nowrap; }
+.ai-run .ok { color: var(--green); font-weight: 600; }
+.ai-run .bad, .ai-bad { color: var(--red-2); font-weight: 600; }
+pre.report { white-space: pre-wrap; margin: 0; background: #fbfaf6; border: 1px solid var(--line); border-radius: 8px; padding: 14px; font: 12.5px/1.6 var(--mono); max-height: 70vh; overflow: auto; }
 .pstate { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 12.5px; font-weight: 600; background: var(--sunk); color: var(--ink-2); }
 .pstate.warn { background: var(--amber-bg); color: var(--amber); }
 .pstate.ok { background: var(--green-bg); color: var(--green); }
