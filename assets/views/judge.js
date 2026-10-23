@@ -174,7 +174,7 @@ export function JudgeView() {
     ${!data.teams.length ? html`<div class="notice">아직 본선 진출 팀이 없습니다.</div>` : html`<div class="jgrid">
       <ol class="jlist">
         ${data.teams.map((t, i) => html`<li><button aria-current=${t.id === sel ? 'true' : 'false'} onClick=${() => pick(t.id)}>
-          <span class="ord">${t.presentOrder || i + 1}</span>
+          <span class="ord">${t.presentOrder || '-'}</span>
           <span><b>${t.name}</b><div class="small muted">${t.projectName}</div></span>
           ${t.score ? html`<span class="done">${t.score.total}</span>` : html`<span class="todo">미채점</span>`}
         </button></li>`)}

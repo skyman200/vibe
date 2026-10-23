@@ -84,9 +84,15 @@ function SurveyForm({ form, onView }) {
     });
   };
   const answered = form.items.filter((it) => ans[it.key]).length;
+  const groups = form.groups && form.groups.length ? form.groups : [{ key: '', label: '' }];
+  const inGroup = (g) => form.items.filter((it) => !g.key || it.group === g.key);
   return html`<form class="survey" onSubmit=${submit} novalidate>
-    <p class="small muted" style="margin:0">문항마다 1(전혀 그렇지 않다)~5(매우 그렇다) 중 하나를 고릅니다. 응답은 이름·학번 없이 운영 계정 구글 드라이브의 시트에 저장되어 행사 개선 통계로만 씁니다.</p>
-    ${form.items.map((it) => html`<${Likert} key=${it.key} item=${it} scale=${form.scale} value=${ans[it.key]} onChange=${(v) => set(it.key, v)} error=${errors[`survey.${it.key}`]} />`)}
+    ${form.program ? html`<p style="margin:0"><b>${form.program}</b>${form.detail ? html` <span class="muted">(${form.detail})</span>` : ''}과 본선 해커톤을 함께 돌아보는 조사입니다.</p>` : ''}
+    <p class="small muted" style="margin:0">문항마다 1(전혀 그렇지 않다)~5(매우 그렇다) 중 하나를 고릅니다. 응답은 이름·학번 없이 운영 계정 구글 드라이브의 시트에 저장되어 교육·행사 개선 통계로만 씁니다.</p>
+    ${groups.map((g) => html`<div class="survey-group" key=${g.key}>
+      ${g.label ? html`<h3 class="survey-gh">${g.label}</h3>` : ''}
+      ${inGroup(g).map((it) => html`<${Likert} key=${it.key} item=${it} scale=${form.scale} value=${ans[it.key]} onChange=${(v) => set(it.key, v)} error=${errors[`survey.${it.key}`]} />`)}
+    </div>`)}
     ${form.texts.map((t) => html`<div class=${`field${errors[`survey.${t.key}`] ? ' bad' : ''}`} key=${t.key}>
       <label for=${`sv-${t.key}`}>${t.label}<span class="opt">선택</span></label>
       <textarea id=${`sv-${t.key}`} class="textarea" maxlength=${t.max} value=${ans[t.key] || ''} onInput=${(e) => set(t.key, e.target.value)}></textarea>
@@ -119,7 +125,7 @@ export function SurveyPanel({ view, onView }) {
     body = html`<div class="notice warn">설문을 불러오지 못했습니다. <button class="link-btn" onClick=${reload}>다시 불러오기</button></div>`;
   }
   return html`<section class="panel" id="survey">
-    <div class="panel-h"><h2>만족도 조사</h2><span class="small muted num">팀 ${sv.count}/${sv.total}명 응답</span></div>
+    <div class="panel-h"><h2>${sv.form && sv.form.title ? sv.form.title : '만족도 조사'}</h2><span class="small muted num">팀 ${sv.count}/${sv.total}명 응답</span></div>
     ${body}
   </section>`;
 }

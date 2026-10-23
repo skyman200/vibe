@@ -3,10 +3,12 @@
 // - PUBLIC_URL: 공개 읽기(설정·참가현황). 배포본은 Vercel 함수(web/api/public.js)가 CDN 에 캐시하고
 //   동시에 몰린 요청을 하나로 합쳐, 접속이 몰려도 Apps Script 에는 거의 요청이 가지 않는다.
 // - LOG_URL: 화면 오류 보고. 로컬 개발은 같은 서버가 받아 터미널에 찍고, 배포본은 Vercel 함수(web/api/log.js)가 디스코드로 알린다.
-import { GAS_URL, PUBLIC_API_URL, LOG_API_URL } from './endpoints.js';
+// - JUDGE_URL: 본선 AI 코드 심사 채점 도우미(이 컴퓨터). 로컬 개발·연습은 시험 서버에 붙은 연습 도우미, 배포본은 실제 도우미.
+import { GAS_URL, PUBLIC_API_URL, LOG_API_URL, JUDGE_URL as JUDGE_LIVE_URL, JUDGE_PRACTICE_URL } from './endpoints.js';
 
-const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+export const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 
 export const API_URL = LOCAL ? '/api' : GAS_URL;
 export const PUBLIC_URL = LOCAL ? '/api/public' : PUBLIC_API_URL;
 export const LOG_URL = LOCAL ? '/api/log' : LOG_API_URL;
+export const JUDGE_URL = LOCAL ? JUDGE_PRACTICE_URL : JUDGE_LIVE_URL;

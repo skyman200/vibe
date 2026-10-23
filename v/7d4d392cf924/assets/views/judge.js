@@ -1,4 +1,4 @@
-// 심사위원: 코드로 로그인 → 발표 순서대로 팀을 골라 대면 심사(50점) 채점.
+// 심사위원: 코드로 로그인 → 테이블 번호(순회 심사) 순서대로 팀을 골라 대면 심사(50점) 채점.
 import { html, useState, useEffect, useApp, api, session, fmtShort } from '../lib.js';
 import { Field, LoadFailed, useBusy } from '../ui.js';
 
@@ -76,10 +76,10 @@ function ScorePanel({ team, rubric, locked, onSaved, onNext }) {
     }
   });
 
-  return html`<div class="panel">
+  return html`<div class="panel" id="judge-panel">
     <div class="panel-h">
       <div>
-        <p class="overline">${team.presentOrder ? `발표 ${team.presentOrder}번` : '발표 순서 미정'} · ${team.repDept.name}</p>
+        <p class="overline">${team.presentOrder ? `테이블 ${team.presentOrder}번` : '테이블 번호 미정'} · ${team.repDept.name}</p>
         <h2 style="font-size:24px;margin-top:2px">${team.name}</h2>
       </div>
       <div class="score-total"><b>${filled ? total : '–'}</b><span class="muted">/ 50</span></div>
@@ -145,11 +145,22 @@ export function JudgeView() {
   const team = data.teams.find((t) => t.id === sel);
   const done = data.teams.filter((t) => t.score).length;
   const onSaved = (id, score) => setData((d) => ({ ...d, teams: d.teams.map((t) => (t.id === id ? { ...t, score } : t)) }));
+  // 고른 팀의 채점 칸을 보인다: 좁은 화면(휴대폰·세로 태블릿)은 목록 아래에 채점 칸이 있어 그 칸으로, 넓은 화면은 맨 위로.
+  const showPanel = () => requestAnimationFrame(() => {
+    const panel = document.getElementById('judge-panel');
+    const list = document.querySelector('.jlist');
+    if (panel && list && panel.getBoundingClientRect().top >= list.getBoundingClientRect().bottom) panel.scrollIntoView({ block: 'start' });
+    else window.scrollTo(0, 0);
+  });
+  const pick = (id) => {
+    setSel(id);
+    showPanel();
+  };
   const onNext = () => {
     const idx = data.teams.findIndex((t) => t.id === sel);
     const next = data.teams.slice(idx + 1).concat(data.teams.slice(0, idx)).find((t) => !t.score && t.id !== sel);
     if (next) setSel(next.id);
-    window.scrollTo(0, 0);
+    showPanel();
   };
 
   return html`<div class="wrap page">
@@ -162,8 +173,8 @@ export function JudgeView() {
     </div>
     ${!data.teams.length ? html`<div class="notice">아직 본선 진출 팀이 없습니다.</div>` : html`<div class="jgrid">
       <ol class="jlist">
-        ${data.teams.map((t, i) => html`<li><button aria-current=${t.id === sel ? 'true' : 'false'} onClick=${() => setSel(t.id)}>
-          <span class="ord">${t.presentOrder || i + 1}</span>
+        ${data.teams.map((t, i) => html`<li><button aria-current=${t.id === sel ? 'true' : 'false'} onClick=${() => pick(t.id)}>
+          <span class="ord">${t.presentOrder || '-'}</span>
           <span><b>${t.name}</b><div class="small muted">${t.projectName}</div></span>
           ${t.score ? html`<span class="done">${t.score.total}</span>` : html`<span class="todo">미채점</span>`}
         </button></li>`)}

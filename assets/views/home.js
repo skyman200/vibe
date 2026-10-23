@@ -234,7 +234,8 @@ export function HomeView() {
 
     <${Sec} n="5" title="결과물 제출" id="submit">
       <ul class="bullets">
-        <li>본선이 시작되면 <b>GitHub 공개 저장소 주소</b>(심사 기간 동안 공개)와 서비스 주소를 이 사이트의 「내 신청」에 한 번 등록하고, 그 저장소에 계속 올립니다.</li>
+        <li>본선 결과물은 <b>본선 시작${e.kickoffAt ? `(${fmtWhen(e.kickoffAt)})` : ''} 뒤에 새로 만든 GitHub 공개 저장소</b>에서 개발합니다. 본선 전에 만든 코드(예선 결과물 포함)를 가져오면 실격입니다(공개 시작 저장소는 써도 됩니다).</li>
+        <li>새 저장소는 ${e.startDeadline ? html`<b class="num">${fmtWhen(e.startDeadline)}</b>까지` : '본선 1일차 오전에'} 이 사이트의 「내 신청」에 등록하고(출발점), 서비스 주소도 함께 넣은 뒤 그 저장소에 자주 커밋·푸시합니다. 서버가 그 개발 과정을 기록합니다.</li>
         <li>제출 마감은 <b class="num">${fmtWhen(e.submitDeadline)}</b>입니다. 심사는 마감 시각에 main(기본) 브랜치에 있는 최신 커밋으로 하며, 마감 이후의 커밋은 반영하지 않습니다.</li>
         <li>마감 당일에는 <b>팀원 모두 「내 신청」에서 만족도 조사에 응답한 뒤 [최종 제출]</b>을 눌러야 제출이 끝납니다. 최종 제출하지 않은 팀은 미제출로 처리됩니다.</li>
         <li>README에는 ${config.readmeItems.join(', ')}을 적습니다.</li>

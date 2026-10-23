@@ -615,8 +615,22 @@ blockquote.con-say::before { content: '할 말 '; font-weight: 700; color: var(-
 .call-h .btn { margin-left: auto; }
 .call-t { margin: 8px 0 0; font-size: 14.5px; color: var(--ink-2); white-space: pre-line; }
 .calls-check { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; font-size: 14.5px; }
+.visit-rounds span { flex-direction: column; gap: 4px; padding: 8px 12px; font-family: inherit; }
+.visit-time { font: 500 11.5px/1.2 var(--mono); opacity: .75; }
+.visit-q { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.visit-item { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 2fr) auto; gap: 6px 16px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.visit-item.here { border: 2px solid var(--amber); }
+.visit-item.done { background: #fbfaf6; }
+.visit-st { display: grid; gap: 2px; }
+.check-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 14.5px; }
+.check-list li.on > .check > span { color: var(--ink-2); }
+.integ-flags { display: flex; flex-wrap: wrap; gap: 4px; }
+.integ-table td { vertical-align: top; }
+.survey-group { display: grid; gap: 14px; }
+.survey-gh { margin: 6px 0 0; font-size: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 @media (max-width: 720px) {
   .help-item { grid-template-columns: 1fr; }
+  .visit-item { grid-template-columns: 1fr; }
   .finals-bar { position: static; }
   .likert-opts small { font-size: 11.5px; }
 }

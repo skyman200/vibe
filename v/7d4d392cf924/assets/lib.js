@@ -94,7 +94,7 @@ const POST_TIMEOUT_MS = 60000;
  * 드라이브에 보관한 뒤 답하고, 예선 심사 묶음의 팀 하나는 그 팀의 보관본을 읽어 개인정보를 가린 뒤 답한다. 본선 코드 심사
  * 묶음의 팀 하나는 마감 커밋의 압축 파일(최대 30MB)을 GitHub 에서 받아 가린 뒤 답한다.
  */
-const SLOW_POST_MS = { prelimSubmit: 240000, adminPrelimBundleTeam: 180000, adminFinalsBundleTeam: 180000 };
+const SLOW_POST_MS = { prelimSubmit: 240000, adminPrelimBundleTeam: 180000 };
 
 /**
  * 쓰기·로그인·관리 요청(공개 읽기가 전달망에서 답을 못 받았을 때도). 서버는 본문의 action 만 쓴다. 주소에도 요청 이름을

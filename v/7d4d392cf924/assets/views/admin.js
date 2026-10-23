@@ -467,9 +467,9 @@ function TeamDrawer({ team, data, onClose, reload }) {
         <div class="panel-h"><h2>운영 메모</h2></div>
         <div class="grid-2">
           <${Field} label="관리자 메모" id="adm-memo" cls="span-2"><textarea id="adm-memo" class="textarea" maxlength="500" value=${memo} onInput=${(e) => setMemo(e.target.value)}></textarea><//>
-          <${Field} label="발표 순서" id="adm-order" hint="심사위원 화면의 순서"><input id="adm-order" class="input num" inputmode="numeric" maxlength="3" value=${order} onInput=${(e) => setOrder(e.target.value.replace(/[^0-9]/g, ''))} /><//>
+          <${Field} label="테이블 번호" id="adm-order" hint="순회 심사·멘토링 순서 — 심사위원·멘토 화면과 현황판에 나옵니다"><input id="adm-order" class="input num" inputmode="numeric" maxlength="3" value=${order} onInput=${(e) => setOrder(e.target.value.replace(/[^0-9]/g, ''))} /><//>
         </div>
-        <div><button class="btn btn-sm btn-primary" disabled=${busy} onClick=${() => call('adminTeam', { patch: { memo, presentOrder: order } }, '저장했습니다.')}>메모·순서 저장</button></div>
+        <div><button class="btn btn-sm btn-primary" disabled=${busy} onClick=${() => call('adminTeam', { patch: { memo, presentOrder: order } }, '저장했습니다.')}>메모·테이블 번호 저장</button></div>
       </section>
 
       <section class="panel">
@@ -609,12 +609,12 @@ function JudgingTab({ data, reload, openTeam }) {
       <div class="table-box"><table class="dtable">
         <thead><tr><th>순위</th><th>시상</th><th>팀</th><th>코드(50)</th><th>대면 평균(50)</th><th>심사위원</th><th>총점</th></tr></thead>
         <tbody>${r.rows.map((x) => html`<tr>
-          <td class="num"><b>${x.rank || '-'}</b></td><td>${x.award ? html`<span class="award">${x.award}</span>` : ''}</td>
-          <td>${x.name}</td><td class="num">${x.code === null ? '-' : x.code}</td><td class="num">${x.live === null ? '-' : x.live.toFixed(2)}</td>
+          <td class="num"><b>${x.dq ? '실격' : x.rank || '-'}</b></td><td>${x.award ? html`<span class="award">${x.award}</span>` : ''}</td>
+          <td>${x.name}${x.dq ? html` <span class="pstate bad">실격</span>` : ''}</td><td class="num">${x.code === null ? '-' : x.code}</td><td class="num">${x.live === null ? '-' : x.live.toFixed(2)}</td>
           <td class="num">${x.liveCount}/${x.judgeCount}</td><td class="num"><b>${x.total === null ? '-' : x.total.toFixed(2)}</b></td>
         </tr>`)}</tbody>
       </table></div>
-      <p class="small muted" style="margin:0">총점 = 코드 심사 + 대면 심사 평균. 같으면 대면 점수가 높은 팀이 위. 시상 수는 설정에서 바꿀 수 있습니다.</p>
+      <p class="small muted" style="margin:0">총점 = 코드 심사 + 대면 심사 평균. 같으면 대면 점수가 높은 팀이 위. 실격 팀은 순위·시상 없이 맨 아래. 시상 수는 설정에서 바꿀 수 있습니다.</p>
     </section>
 
     ${issued ? html`<${Modal} title="심사위원 코드" onClose=${() => setIssued(null)}>
@@ -629,7 +629,7 @@ function JudgingTab({ data, reload, openTeam }) {
 
 const SETTING_GROUPS = [
   ['행사', [['eventName', '행사명', 'text'], ['eventPeriod', '행사 일시(표시용)', 'text'], ['venue', '장소', 'text']]],
-  ['기간(한국 시각)', [['applyStart', '접수 시작', 'datetime'], ['applyEnd', '접수 마감', 'datetime'], ['submitOpen', '결과물 제출 시작', 'datetime'], ['submitDeadline', '결과물 제출 마감', 'datetime']]],
+  ['기간(한국 시각)', [['applyStart', '접수 시작', 'datetime'], ['applyEnd', '접수 마감', 'datetime'], ['submitOpen', '결과물 제출 시작', 'datetime'], ['kickoffAt', '본선 시작(저장소 등록 열림)', 'datetime'], ['startDeadline', '출발점 등록 마감', 'datetime'], ['submitDeadline', '결과물 제출 마감', 'datetime']]],
   ['인원', [['applicantCap', '접수 정원(명) — 4의 배수 권장', 'number'], ['selectTarget', '본선 진출 팀 수', 'number']]],
   ['시상 팀 수', [['awardGold', '금상', 'number'], ['awardSilver', '은상', 'number'], ['awardBronze', '동상', 'number']]],
   ['문의처', [['contactName', '문의처', 'text'], ['contactPhone', '전화', 'text'], ['contactEmail', '이메일', 'text']]],

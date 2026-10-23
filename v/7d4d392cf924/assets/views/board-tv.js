@@ -127,7 +127,7 @@ export function TvBoard() {
 
   return html`<div class="tv-wrap">
     <header class="tv-head">
-      <div class="tv-title"><span class="brand-mark">DIT</span> 바이브코딩 해커톤 2026 <span class="tv-sub">본선 현황판</span></div>
+      <div class="tv-title"><span class="brand-mark">DIT</span> 바이브코딩 해커톤 경진대회 2026 <span class="tv-sub">본선 현황판</span></div>
       <div class="tv-clock num" aria-label="지금 시각">${kstClock(ms)}</div>
     </header>
 
