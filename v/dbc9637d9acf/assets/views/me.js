@@ -1,12 +1,14 @@
-// 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 예선(prelim.js), 결과물(GitHub) 제출, 본인 정보 정정·철회.
+// 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 예선(prelim.js), 본선 결과물 제출(저장소 등록 → 만족도 조사 → 최종 제출,
+// me-finals.js)·멘토링 요청, 본인 정보 정정·철회.
 import {
-  html, useState, useEffect, useApp, api, session, digits, fmtWhen, STATUS_LABEL,
+  html, useState, useEffect, useRef, useApp, api, session, digits, fmtWhen, STATUS_LABEL,
 } from '../lib.js';
 import {
   Field, LoadFailed, Modal, Slots, Status, Veil, MemberFields, useBusy, checkMember, serverErrors, focusFirstError,
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
 import { PrelimPanel } from './prelim.js';
+import { DeadlineClock, SurveyPanel, FinalPanel, HelpPanel, useFinalsPoll } from './me-finals.js';
 
 const CHECK_LABEL = { ok: '확인 완료', warn: '확인 필요', missing: '찾을 수 없음', error: '점검 실패' };
 const CHECK_TONE = { ok: 'ok', warn: 'warn', missing: 'bad', error: 'bad' };
@@ -135,12 +137,15 @@ function RepoPanel({ view, onView, config }) {
 
   const submit = (e) => {
     e.preventDefault();
+    const moving = t.final && repo && repoUrl.trim().replace(/(\.git)?\/*$/, '') !== repo.url;
+    if (moving && !window.confirm('저장소 주소를 바꾸면 최종 제출이 풀려 다시 눌러야 합니다. 바꿀까요?')) return;
     run(async () => {
       try {
         const res = await api('repoSubmit', { token: session.get('member'), repoUrl: repoUrl.trim(), serviceUrl: serviceUrl.trim(), agree });
         onView(res.view);
         setErrors({});
-        notify('결과물을 제출했습니다.');
+        if (t.final && !res.view.team.final) notify('저장소가 바뀌어 최종 제출이 풀렸습니다. 아래에서 다시 [최종 제출]을 눌러 주세요.', 'err');
+        else notify('저장소를 등록했습니다. 이제 이 저장소에 계속 올리면 됩니다.');
       } catch (err) {
         setErrors(serverErrors(err));
       }
@@ -155,12 +160,13 @@ function RepoPanel({ view, onView, config }) {
     }
   });
 
-  return html`<section class="panel">
-    <div class="panel-h"><h2>결과물 제출</h2><span class="small muted num">마감 ${fmtWhen(config.event.submitDeadline)}</span></div>
+  return html`<section class="panel" id="repo">
+    <div class="panel-h"><h2>결과물 제출</h2><span class="small muted">① 저장소 등록 → ② 만족도 조사 → ③ 최종 제출</span></div>
+    <${DeadlineClock} view=${view} deadline=${config.event.submitDeadline} />
     ${repo ? html`<dl class="kv">
       <dt>GitHub</dt><dd><a href=${repo.url} target="_blank" rel="noopener">${repo.url}</a></dd>
       ${repo.serviceUrl ? html`<dt>서비스</dt><dd><a href=${repo.serviceUrl} target="_blank" rel="noopener">${repo.serviceUrl}</a></dd>` : ''}
-      <dt>제출</dt><dd>${fmtWhen(repo.at)}${repo.by ? ` · ${repo.by}` : ''}</dd>
+      <dt>등록</dt><dd>${fmtWhen(repo.at)}${repo.by ? ` · ${repo.by}` : ''}</dd>
       ${repo.pinnedSha ? html`<dt>심사 기준 커밋</dt><dd class="mono">${repo.pinnedSha.slice(0, 10)}</dd>` : ''}
     </dl>
     <${CheckResult} check=${repo.check} />
@@ -171,13 +177,14 @@ function RepoPanel({ view, onView, config }) {
       <${Field} label="GitHub 저장소 주소" id="repo-url" required error=${errors.repoUrl} hint="https://github.com/계정/저장소 — 심사 기간 동안 공개(Public)">
         <input id="repo-url" class="input mono" inputmode="url" placeholder="https://github.com/team/project" value=${repoUrl} onInput=${(e) => setRepoUrl(e.target.value)} />
       <//>
-      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 경우 https:// 주소">
+      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 앱 주소(https://) — 2일차 시연 심사 때 이 주소로 엽니다. 배포한 뒤 [다시 등록]으로 넣어도 됩니다.">
         <input id="service-url" class="input mono" inputmode="url" placeholder="https://" value=${serviceUrl} onInput=${(e) => setServiceUrl(e.target.value)} />
       <//>
       <label class="check"><input type="checkbox" checked=${agree} onChange=${(e) => setAgree(e.target.checked)} />
         <span>저장소를 심사 기간 동안 공개로 두고, API 키 같은 비밀정보가 들어 있지 않음을 확인합니다.</span></label>
       ${errors.agree || errors._form ? html`<div class="err" role="alert">${errors.agree || errors._form}</div>` : ''}
-      <div><button class="btn btn-primary" type="submit" disabled=${busy}>${busy ? '점검하며 제출하는 중…' : repo ? '다시 제출' : '제출'}</button></div>
+      <div><button class="btn btn-primary" type="submit" disabled=${busy}>${busy ? '점검하며 등록하는 중…' : repo ? '다시 등록' : '저장소 등록'}</button></div>
+      <p class="small muted" style="margin:0">등록은 한 번이면 됩니다. 그다음에는 이 저장소의 main(기본) 브랜치에 계속 올리면 되고, 심사는 마감 시각의 최신 커밋으로 합니다. 마감 당일에는 팀원 모두 만족도 조사에 응답한 뒤 [최종 제출]을 눌러야 제출이 됩니다.</p>
     </form>` : ''}
   </section>`;
 }
@@ -404,6 +411,23 @@ export function MeView() {
   const [view, setView] = useState(null);
   const [state, setState] = useState(session.get('member') ? 'loading' : 'login');
   const [message, setMessage] = useState('');
+  // 쓰기(제출·응답·요청 등)의 답은 늘 화면에 쓰고, 그 전에 출발해 늦게 도착한 다시 읽기(폴링·탭 복귀)는 버린다 — 방금 바꾼 화면이 옛 읽기로 되돌아가지 않게
+  const seq = useRef(0);
+  const writeView = (v) => { seq.current += 1; setView(v); };
+  const refresh = () => {
+    const mine = seq.current;
+    return api('me', { token: session.get('member') }).then((res) => {
+      if (mine === seq.current) setView(res.view);
+    }).catch((err) => {
+      // 로그인이 끊겼으면(철회·내보내기·만료) 로그인 화면으로. 그 밖의 오류는 다음 차례에 다시 읽는다.
+      // 읽는 사이 쓰기(학번·비밀번호 변경 등)가 새 로그인을 받았으면 옛 로그인의 AUTH 는 버린다.
+      if (err.code !== 'AUTH' || mine !== seq.current) return;
+      session.clear('member');
+      setMessage(err.message);
+      setState('login');
+    });
+  };
+  useFinalsPoll(state === 'ready' ? view : null, refresh);
 
   useEffect(() => {
     if (state !== 'loading') return;
@@ -425,14 +449,7 @@ export function MeView() {
   useEffect(() => {
     if (state !== 'ready') return undefined;
     const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      api('me', { token: session.get('member') }).then((res) => setView(res.view)).catch((err) => {
-        // 로그인이 끊겼으면(철회·내보내기·만료) 로그인 화면으로. 그 밖의 오류는 다음에 탭으로 돌아올 때 다시 불러온다.
-        if (err.code !== 'AUTH') return;
-        session.clear('member');
-        setMessage(err.message);
-        setState('login');
-      });
+      if (document.visibilityState === 'visible') refresh();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
@@ -451,7 +468,7 @@ export function MeView() {
     if (!window.confirm('새 초대 링크를 만들까요? 지금 링크로는 더 이상 합류할 수 없습니다.')) return;
     try {
       const res = await api('teamInvite', { token: session.get('member') });
-      setView(res.view);
+      writeView(res.view);
       notify('새 초대 링크를 만들었습니다. 합류할 팀원에게 다시 보내 주세요.');
     } catch (err) {
       notify(err.message, 'err');
@@ -474,16 +491,19 @@ export function MeView() {
     <div class="two-col">
       <div class="stack">
         <${StatusNotice} view=${view} config=${config} />
-        <${PrelimPanel} view=${view} onView=${setView} />
+        <${PrelimPanel} view=${view} onView=${writeView} />
         ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} onRotate=${rotateInvite} />` : ''}
-        <${SubmitPanel} view=${view} onView=${setView} />
-        <${RepoPanel} view=${view} onView=${setView} config=${config} />
-        <${MembersPanel} view=${view} onView=${setView} />
-        <${TeamPanel} view=${view} onView=${setView} config=${config} />
+        <${SubmitPanel} view=${view} onView=${writeView} />
+        <${RepoPanel} view=${view} onView=${writeView} config=${config} />
+        <${SurveyPanel} view=${view} onView=${writeView} />
+        <${FinalPanel} view=${view} onView=${writeView} deadline=${config.event.submitDeadline} />
+        <${HelpPanel} view=${view} onView=${writeView} />
+        <${MembersPanel} view=${view} onView=${writeView} />
+        <${TeamPanel} view=${view} onView=${writeView} config=${config} />
       </div>
       <div class="stack">
         <div class="mustread"><span class="label-red">필독</span><div><strong>${config.training.notice}</strong><p>${config.training.detail}</p></div></div>
-        <${MyInfoPanel} view=${view} onView=${setView} config=${config} />
+        <${MyInfoPanel} view=${view} onView=${writeView} config=${config} />
         <${DangerPanel} view=${view} onLeft=${onLeft} />
       </div>
     </div>
