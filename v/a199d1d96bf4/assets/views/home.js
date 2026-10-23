@@ -214,7 +214,7 @@ export function HomeView() {
     <${Sec} n="3" title="심사 기준" id="judging">
       <div class="two">
         <${RubricTable} title="코드 심사" rows=${config.rubric.code}
-          note="제출 마감 시점의 GitHub 저장소와 README를 AI가 모든 팀에 같은 기준으로 분석합니다." />
+          note="제출 마감 시점의 GitHub 저장소와 README를 AI가 모든 팀에 같은 기준으로 분석합니다(이름·학번·연락처와 API 키 같은 비밀값은 가린 뒤)." />
         <${RubricTable} title="대면 심사" rows=${config.rubric.live}
           note="심사위원이 팀 자리를 돌며 시연을 보고 질의응답으로 평가하며, 평균 점수를 반영합니다." />
       </div>

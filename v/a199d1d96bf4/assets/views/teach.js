@@ -37,7 +37,7 @@ function TeachLogin({ onDone, message }) {
     });
   };
   return html`<div class="wrap page">
-    <div class="page-h"><div><h1>강사</h1><p>운영 담당에게 받은 강사 코드를 입력하세요.</p></div></div>
+    <div class="page-h"><div><h1>강사</h1><p>운영 담당에게 받은 강사 코드를 입력하세요(예선 의무 교육용). 본선 강사·멘토는 <a href="#/mentor">멘토 화면</a>에서 멘토 코드로 들어갑니다.</p></div></div>
     <form class="box" style="max-width:440px;display:grid;gap:14px" onSubmit=${submit}>
       <${Field} label="강사 코드" id="teach-code" error=${error}>
         <input id="teach-code" class="input mono" autocomplete="off" placeholder="XXXX-XXXX" value=${code} onInput=${(e) => setCode(e.target.value.toUpperCase())} />

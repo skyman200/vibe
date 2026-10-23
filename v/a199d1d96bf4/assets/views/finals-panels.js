@@ -72,7 +72,7 @@ export function TeamTable({ data, ms, extra }) {
   return html`<section class="panel">
     <div class="panel-h"><h2>본선 팀</h2><span class="small muted">저장소는 5분마다 최신 커밋을 보고 바뀌면 다시 점검합니다</span></div>
     ${data.teams.length ? html`<div class="table-box"><table class="dtable finals-table">
-      <thead><tr><th>순서</th><th>팀</th><th>저장소</th><th>점검</th><th>마지막 변경</th><th>서비스</th><th>만족도</th><th>최종 제출</th><th>멘토링</th>${extra ? html`<th></th>` : ''}</tr></thead>
+      <thead><tr><th>테이블</th><th>팀</th><th>저장소</th><th>점검</th><th>마지막 변경</th><th>서비스</th><th>만족도</th><th>최종 제출</th><th>멘토링</th>${extra ? html`<th></th>` : ''}</tr></thead>
       <tbody>${data.teams.map((t) => {
         const c = t.repo && t.repo.check;
         const st = c ? CHECK[c.state] || ['-', ''] : null;

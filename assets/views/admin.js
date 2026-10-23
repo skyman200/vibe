@@ -467,9 +467,9 @@ function TeamDrawer({ team, data, onClose, reload }) {
         <div class="panel-h"><h2>운영 메모</h2></div>
         <div class="grid-2">
           <${Field} label="관리자 메모" id="adm-memo" cls="span-2"><textarea id="adm-memo" class="textarea" maxlength="500" value=${memo} onInput=${(e) => setMemo(e.target.value)}></textarea><//>
-          <${Field} label="발표 순서" id="adm-order" hint="심사위원 화면의 순서"><input id="adm-order" class="input num" inputmode="numeric" maxlength="3" value=${order} onInput=${(e) => setOrder(e.target.value.replace(/[^0-9]/g, ''))} /><//>
+          <${Field} label="테이블 번호" id="adm-order" hint="순회 심사·멘토링 순서 — 심사위원·멘토 화면과 현황판에 나옵니다"><input id="adm-order" class="input num" inputmode="numeric" maxlength="3" value=${order} onInput=${(e) => setOrder(e.target.value.replace(/[^0-9]/g, ''))} /><//>
         </div>
-        <div><button class="btn btn-sm btn-primary" disabled=${busy} onClick=${() => call('adminTeam', { patch: { memo, presentOrder: order } }, '저장했습니다.')}>메모·순서 저장</button></div>
+        <div><button class="btn btn-sm btn-primary" disabled=${busy} onClick=${() => call('adminTeam', { patch: { memo, presentOrder: order } }, '저장했습니다.')}>메모·테이블 번호 저장</button></div>
       </section>
 
       <section class="panel">

@@ -20,7 +20,7 @@ function MentorCodePanel({ data, busy, call }) {
     if (confirm('멘토 코드를 없앨까요? 멘토 화면에 더 이상 들어갈 수 없습니다.')) call('adminMentorCode', { off: true }, '멘토 코드를 없앴습니다.');
   };
   return html`<section class="panel">
-      <div class="panel-h"><h2>멘토 코드</h2><span class="small muted">외부 강사·멘토가 멘토 화면에서 멘토링 요청을 맡고 진행 공지를 볼 때 씁니다</span></div>
+      <div class="panel-h"><h2>멘토 코드</h2><span class="small muted">강사(멘토를 겸함)가 멘토 화면에서 멘토링 요청을 맡고 진행 공지를 볼 때 씁니다</span></div>
       <div class="btn-row">
         ${data.mentor.on ? html`<span class="pstate ok">있음</span><span class="small muted">${fmtShort(data.mentor.at)} 발급</span>` : html`<span class="pstate">없음</span>`}
         <button class="btn btn-sm" disabled=${busy} onClick=${make}>${data.mentor.on ? '다시 만들기' : '멘토 코드 만들기'}</button>

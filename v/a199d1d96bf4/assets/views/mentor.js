@@ -64,8 +64,8 @@ function Board({ data, busy, act, reload, logout, state, message }) {
     <div class="stack">
       <${ClockBar} data=${data} ms=${ms} />
       <${HelpQueue} data=${data} ms=${ms} busy=${busy} act=${act} />
-      <${RunSheet} data=${data} ms=${ms} />
       <${TeamTable} data=${data} ms=${ms} />
+      <${RunSheet} data=${data} ms=${ms} />
     </div>
   </div>`;
 }

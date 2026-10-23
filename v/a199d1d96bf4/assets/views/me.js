@@ -177,7 +177,7 @@ function RepoPanel({ view, onView, config }) {
       <${Field} label="GitHub 저장소 주소" id="repo-url" required error=${errors.repoUrl} hint="https://github.com/계정/저장소 — 심사 기간 동안 공개(Public)">
         <input id="repo-url" class="input mono" inputmode="url" placeholder="https://github.com/team/project" value=${repoUrl} onInput=${(e) => setRepoUrl(e.target.value)} />
       <//>
-      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 경우 https:// 주소">
+      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 앱 주소(https://) — 2일차 시연 심사 때 이 주소로 엽니다. 배포한 뒤 [다시 등록]으로 넣어도 됩니다.">
         <input id="service-url" class="input mono" inputmode="url" placeholder="https://" value=${serviceUrl} onInput=${(e) => setServiceUrl(e.target.value)} />
       <//>
       <label class="check"><input type="checkbox" checked=${agree} onChange=${(e) => setAgree(e.target.checked)} />
