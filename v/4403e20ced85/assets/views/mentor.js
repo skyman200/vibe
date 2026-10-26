@@ -1,9 +1,10 @@
 // 본선 멘토 화면(#/mentor): 운영진에게 받은 멘토 코드와 자기 이름으로 들어가 멘토링 요청을 요청 순서대로 맡고([가는 중]) 끝낸다([완료]).
-// 본선 팀의 저장소 점검·만족도 조사 응답 수·최종 제출과, 시각마다 읽거나 단톡방에 붙여 넣을 진행 공지(복사)도 본다.
+// 본선 팀의 출발점·저장소 점검·만족도 조사 응답 수·최종 제출, 멘토링 순회 기록([도착]·[떠남]·메모 — [드라이브에 저장]),
+// 강사·멘토 체크리스트, 시각마다 읽거나 단톡방에 붙여 넣을 진행 공지(복사)도 본다.
 // 팀원 이름·연락처는 보이지 않는다. 현황은 20초마다 새로 읽고, 탭 제목 앞의 (숫자)가 아무도 맡지 않은 요청 수다.
 import { html, useState, useEffect, useRef, useApp, useInterval, api, session } from '../lib.js';
 import { Field, LoadFailed, useBusy } from '../ui.js';
-import { ClockBar, HelpQueue, TeamTable, RunSheet, useFinalsNow } from './finals-panels.js';
+import { ClockBar, HelpQueue, TeamTable, VisitLog, Checklist, RunSheet, useFinalsNow } from './finals-panels.js';
 
 const EXPIRED = '로그인이 끝났습니다. 멘토 코드와 이름을 다시 넣어 주세요.';
 const DONE = {
@@ -44,7 +45,7 @@ function MentorLogin({ onDone, message }) {
   </div>`;
 }
 
-function Board({ data, busy, act, reload, logout, state, message }) {
+function Board({ data, busy, act, send, reload, logout, state, message }) {
   const ms = useFinalsNow(data.now);
   const waiting = data.teams.filter((t) => t.help && t.help.state === 'open').length;
   useEffect(() => {
@@ -64,8 +65,10 @@ function Board({ data, busy, act, reload, logout, state, message }) {
     <div class="stack">
       <${ClockBar} data=${data} ms=${ms} />
       <${HelpQueue} data=${data} ms=${ms} busy=${busy} act=${act} />
-      <${RunSheet} data=${data} ms=${ms} />
       <${TeamTable} data=${data} ms=${ms} />
+      <${VisitLog} data=${data} ms=${ms} busy=${busy} send=${send} />
+      <${Checklist} data=${data} busy=${busy} send=${send} />
+      <${RunSheet} data=${data} ms=${ms} />
     </div>
   </div>`;
 }
@@ -111,24 +114,28 @@ export function MentorView() {
     return () => document.removeEventListener('visibilitychange', on);
   }, []);
 
-  const act = (team, op) => run(async () => {
+  // 쓰기(요청 맡기·순회 기록·체크리스트·드라이브 저장): 답은 새 현황. → 그 답, 실패면 null
+  const send = (action, payload, done) => run(async () => {
     try {
-      const res = await api('mentorHelp', { token: session.get('mentor'), key: team.key, op, at: team.help.at });
+      const res = await api(action, { token: session.get('mentor'), ...payload });
       seq.current += 1;
       setData(res);
       setMessage('');
       setState('ready');
-      notify(DONE[op]);
+      notify(done);
+      return res;
     } catch (err) {
-      if (err.code === 'AUTH') { logout(EXPIRED); return; }
+      if (err.code === 'AUTH') { logout(EXPIRED); return null; }
       notify(err.message, 'err');
-      // 그사이 다른 멘토가 맡았거나 팀이 취소했다(STATE), 또는 반영됐는지 모른다 — 현황을 다시 읽는다
-      if (err.code === 'STATE' || err.ambiguous) loadBoard();
+      // 그사이 다른 멘토가 맡았거나 팀이 취소했다(STATE·NOT_FOUND), 또는 반영됐는지 모른다 — 현황을 다시 읽는다
+      if (err.code === 'STATE' || err.code === 'NOT_FOUND' || err.ambiguous) loadBoard();
+      return null;
     }
   });
+  const act = (team, op) => send('mentorHelp', { key: team.key, op, at: team.help.at }, DONE[op]);
 
   if (state === 'login') return html`<${MentorLogin} message=${message} onDone=${() => { setMessage(''); setState('loading'); }} />`;
   if (state === 'failed' && !data) return html`<${LoadFailed} message=${message} retry=${() => setState('loading')} />`;
   if (!data) return html`<div class="wrap page"><p class="muted">불러오는 중…</p></div>`;
-  return html`<${Board} data=${data} busy=${busy} act=${act} reload=${loadBoard} logout=${logout} state=${state} message=${message} />`;
+  return html`<${Board} data=${data} busy=${busy} act=${act} send=${send} reload=${loadBoard} logout=${logout} state=${state} message=${message} />`;
 }

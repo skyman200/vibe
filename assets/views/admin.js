@@ -370,6 +370,22 @@ function TeamEditor({ team, data, onSaved, onClose }) {
 
 /* ───────────── 팀 상세 ───────────── */
 
+/**
+ * 심사용 계정 요약(「내 신청」에서 팀이 넣는다 — gas/FinalsJudge.js judgeAccessView_). 비밀번호는 서버가 보내지 않아 아이디만 보인다.
+ * 서비스 주소를 바꾼 뒤 고치지 않았으면(sameSite 거짓) AI 심사가 이 계정을 쓰지 않는다.
+ */
+function AccessSummary({ access: a }) {
+  if (!a) return html`<p class="small muted" style="margin:0">심사용 계정: 아직 넣지 않음(2일차 11:00 제출 사전 점검 전까지 — 없으면 AI 심사가 로그인한 화면을 보지 못합니다).</p>`;
+  return html`<div>
+    ${a.sameSite ? '' : html`<div class="notice bad">서비스 주소가 바뀐 뒤 팀이 심사용 계정을 고치지 않았습니다 — 이대로는 AI 심사가 이 계정을 쓰지 않습니다.</div>`}
+    <dl class="kv">
+      <dt>심사용 로그인</dt><dd><a class="mono" href=${a.login} target="_blank" rel="noopener">${a.login}</a> <span class="small muted">${fmtWhen(a.at)}</span></dd>
+      <dt>주요 화면</dt><dd>${a.screens.map((u, i) => html`${i ? html`<br />` : ''}<a class="mono" href=${u} target="_blank" rel="noopener">${u}</a>`)}</dd>
+      <dt>심사용 계정</dt><dd class="mono">${a.accounts.map((x) => x.id).join(' · ')}</dd>
+    </dl>
+  </div>`;
+}
+
 function TeamDrawer({ team, data, onClose, reload }) {
   const { notify } = useApp();
   const [memo, setMemo] = useState(team.memo);
@@ -485,6 +501,7 @@ function TeamDrawer({ team, data, onClose, reload }) {
           ${team.repo.url ? html`<button class="btn btn-sm" disabled=${busy} onClick=${() => call('adminRepoCheck', {}, '저장소를 다시 점검했습니다.')}>저장소 점검</button>
             <a class="btn btn-sm btn-ghost" href=${team.repo.url} target="_blank" rel="noopener">GitHub 열기</a>` : ''}
         </div>
+        ${team.status === 'selected' ? html`<${AccessSummary} access=${team.repo.access} />` : ''}
       </section>
 
       ${team.status === 'selected' ? html`<section class="panel">

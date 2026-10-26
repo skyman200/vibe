@@ -37,7 +37,7 @@ function Header({ route }) {
   const current = route.name === 'join' ? 'apply' : route.name;
   return html`<header class="top">
     <div class=${mode === 'admin' || mode === 'mentor' ? 'top-in wide' : 'top-in'}>
-      <a class="brand" href="#/" aria-label="DIT 바이브코딩 해커톤 처음으로">
+      <a class="brand" href="#/" aria-label="DIT 바이브코딩 해커톤 경진대회 처음으로">
         <span class="brand-mark">DIT</span>
         <span class="brand-name"><span class="brand-long">바이브코딩 </span>해커톤</span>
         <span class="brand-year">2026</span>
@@ -179,7 +179,7 @@ function App() {
       home: '안내', apply: '팀 만들기', join: '팀 합류', board: '참가현황', me: '내 신청',
       judge: '심사', teach: '강사', mentor: '멘토', lesson: '교육 따라 하기', admin: '관리자', privacy: '개인정보 처리 안내',
     };
-    document.title = `${tv ? '현황판' : titles[route.name] || '안내'} — DIT 바이브코딩 해커톤 2026`;
+    document.title = `${tv ? '현황판' : titles[route.name] || '안내'} — DIT 바이브코딩 해커톤 경진대회 2026`;
   }, [route.name, tv]);
 
   let view;

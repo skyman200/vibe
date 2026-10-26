@@ -85,7 +85,14 @@ function StartCell({ t, data }) {
   return t.repo ? html`<span class="pstate warn">기록 전</span>` : '-';
 }
 
-/** 본선 팀 표: 저장소(출발점·점검·마지막 변경)·서비스·만족도 조사 응답 수·최종 제출·멘토링 받은 횟수·순회(분). extra(t): 관리자 단추 칸 */
+/** 서비스 칸의 심사용 계정(「내 신청」 — AI 코드 심사가 로그인할 계정 2개·주요 화면 3개): 넣음 · 아직 · 서비스 주소가 바뀐 뒤 고치지 않음 */
+const ACCESS = {
+  ok: html`<span class="pstate ok">계정 ✓</span>`,
+  '': html`<span class="pstate warn" title="「내 신청」 → 심사용 계정 — 2일차 11:00 제출 사전 점검까지">계정 없음</span>`,
+  stale: html`<span class="pstate bad" title="서비스 주소를 바꾼 뒤 심사용 계정 주소를 고치지 않았습니다">계정 고칠 것</span>`,
+};
+
+/** 본선 팀 표: 저장소(출발점·점검·마지막 변경)·서비스(심사용 계정)·만족도 조사 응답 수·최종 제출·멘토링 받은 횟수·순회(분). extra(t): 관리자 단추 칸 */
 export function TeamTable({ data, ms, extra }) {
   const started = data.teams.filter((t) => t.startAt).length;
   const kicked = data.kickoffAt && ms >= toMs(data.kickoffAt);
@@ -109,7 +116,7 @@ export function TeamTable({ data, ms, extra }) {
             ${c.missing && c.missing.length ? html`<div class="small">README 빠짐: ${c.missing.join(', ')}</div>` : ''}
             ${c.env && c.env.length ? html`<div class="small err">비밀값 파일: ${c.env.join(', ')}</div>` : ''}` : '-'}</td>
           <td class="small num">${c && c.changedAt ? html`${fmtShort(c.changedAt)}<div class="muted">${ago(ms, c.changedAt)}</div>` : '-'}</td>
-          <td>${t.serviceUrl ? html`<a href=${t.serviceUrl} target="_blank" rel="noopener">열기</a>` : '-'}</td>
+          <td>${t.serviceUrl ? html`<a href=${t.serviceUrl} target="_blank" rel="noopener">열기</a>` : '-'}<div>${ACCESS[t.access]}</div></td>
           <td class="num">${t.survey.done}/${t.survey.total}</td>
           <td>${t.final ? html`<span class="pstate ok">제출</span><div class="small muted num">${fmtShort(t.final.at)}${t.final.by === '운영진' ? ' · 운영진' : ''}</div>` : html`<span class="pstate">${data.submit === 'closed' ? '미제출' : '아직'}</span>`}</td>
           <td class="num">${t.helped || '-'}</td>
