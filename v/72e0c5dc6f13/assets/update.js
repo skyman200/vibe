@@ -19,9 +19,12 @@ function store() {
   try { return window.sessionStorage; } catch (e) { return null; }
 }
 
-/** 잃으면 안 되는 것이 화면에 있나: 저장 전 입력, 한 번만 보이는 코드(강사 코드·세션 코드 창 포함), 방금 만든 초대 링크 */
+/**
+ * 잃으면 안 되는 것이 화면에 있나: 저장 전 입력, 한 번만 보이는 코드(강사 코드·세션 코드 창 포함), 방금 만든 초대 링크,
+ * 진행 중인 시상식(새로 고치면 처음으로 돌아가고 관리자 로그인이 풀린다), 저장하지 않은 수상 고르기. 큰 화면(html.tv)에는 안내 막대를 숨긴다.
+ */
 function busy() {
-  return dirty || !!document.querySelector('.codeline, .code-huge, .invite');
+  return dirty || !!document.querySelector('.codeline, .code-huge, .invite, .ceremony, .award-dirty');
 }
 
 async function latest() {

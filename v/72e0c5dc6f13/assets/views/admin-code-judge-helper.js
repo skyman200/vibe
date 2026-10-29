@@ -20,11 +20,14 @@ function remember(on) {
   } catch (e) { /* 저장소가 없으면 이번만 */ }
 }
 
-/** 관리자 토큰 → 채점 도우미 토큰(모듈에 둔다 — 화면을 다시 열어도 다시 받지 않는다). fresh: 도우미가 받지 않았으면 새로. */
+/**
+ * 관리자 토큰 → 채점 도우미 토큰(모듈에 둔다 — 화면을 다시 열어도 다시 받지 않는다). 같은 관리자 토큰이면 서버가 늘 같은 토큰을 주므로
+ * (만료·관리자 코드 묶음이 같다) 도우미가 그 토큰을 거절하면 관리자 로그인이 끝난 것이다.
+ */
 let minted = { admin: '', token: '' };
-async function helperToken(fresh) {
+async function helperToken() {
   const admin = session.get('admin');
-  if (!fresh && minted.token && minted.admin === admin) return minted.token;
+  if (minted.token && minted.admin === admin) return minted.token;
   const res = await api('adminFinalsHelperToken', { token: admin });
   minted = { admin, token: res.token };
   return res.token;
@@ -115,21 +118,16 @@ export function useJudgeHelper({ onAuth, onSettled }) {
       if (seen !== 'ok') { setLink(seen); return { ok: false, code: seen }; }
       ready.current = true;
     }
-    let data;
-    for (const fresh of [false, true]) {
-      let token;
-      try {
-        token = await helperToken(fresh);
-      } catch (err) {
-        if (!live()) return { ok: false, code: 'GONE' };
-        if (err.code === 'AUTH') hooks.current.onAuth();
-        else refuse(err.message);
-        return { ok: false, code: err.code || 'ERROR', error: err.message };
-      }
-      data = await post(path, body, ms, token);
-      // 도우미가 그 토큰을 받지 않았으면(만료·관리자 코드 변경) 한 번 새로 받아 다시 — 거절된 요청은 아무것도 하지 않았다
-      if (data.code !== 'AUTH') break;
+    let token;
+    try {
+      token = await helperToken();
+    } catch (err) {
+      if (!live()) return { ok: false, code: 'GONE' };
+      if (err.code === 'AUTH') hooks.current.onAuth();
+      else refuse(err.message);
+      return { ok: false, code: err.code || 'ERROR', error: err.message };
     }
+    const data = await post(path, body, ms, token);
     if (!live()) return data;
     if (data.code === 'DOWN' || data.code === 'SLOW' || data.code === 'ODD') {
       ready.current = false;
@@ -209,15 +207,24 @@ export function runCounter(work) {
   return count;
 }
 
-/** 진행 한 줄: 묶음 받는 중 · 멈추는 중 · 채점 중(끝/채점 중/대기/실패, 지난 시간) · 채점 폴더 */
+/** 측정 중·써 보기 중·로그인 대기인 팀 수(팀 칸의 measure·trial) — 없으면 빈 글 */
+function stageText(work) {
+  const teams = work ? work.teams : [];
+  const n = (stage, state) => teams.filter((t) => t[stage] && t[stage].state === state).length;
+  return [['측정 중', n('measure', 'running')], ['써 보기 중', n('trial', 'running')], ['로그인 대기', n('measure', 'login')]]
+    .filter(([, c]) => c).map(([name, c]) => `${name} ${c}`).join(' · ');
+}
+
+/** 진행 한 줄: 묶음 받는 중 · 멈추는 중 · 채점 중(측정·써 보기·로그인 대기, 끝/채점 중/대기/실패, 지난 시간) · 채점 폴더 */
 export function progressText(st) {
   const count = runCounter(st.work);
+  const stage = stageText(st.work);
   if (st.progress) return st.progress;
   if (st.stopping) return '멈추는 중…';
   if (st.judging) {
-    return `채점 중 — 끝 ${count('done')}/${count.total} · 채점 중 ${count('running')} · 대기 ${count('queued') + count('wait')}${count('failed') ? ` · 실패 ${count('failed')}` : ''} · ${mmss(st.now - st.judgingSince)} 지남`;
+    return `채점 중 — ${stage ? `${stage} · ` : ''}끝 ${count('done')}/${count.total} · 채점 중 ${count('running')} · 대기 ${count('queued') + count('wait')}${count('failed') ? ` · 실패 ${count('failed')}` : ''} · ${mmss(st.now - st.judgingSince)} 지남`;
   }
-  return st.work ? `채점 폴더: 묶음 ${st.work.bundleId} · 끝 ${count('done')}/${count.total}` : '';
+  return st.work ? `채점 폴더: 묶음 ${st.work.bundleId} · 끝 ${count('done')}/${count.total}${stage ? ` · ${stage}` : ''}` : '';
 }
 
 /** 실패·틀림·다시 시도 대기 회차의 까닭 */
@@ -242,10 +249,49 @@ function Run({ r, now }) {
   return html`<span class="ai-run" title=${r.why || ''}>${text}</span>`;
 }
 
-/** 코드 심사 표의 'AI 채점' 칸: 3회 · AI 평균(갈림) · 받은 자료 · [다시 채점]. */
-export function AiCell({ w, now, disabled, onRedo }) {
+/** 측정·써 보기 한 줄(도우미 stages): 하는 중 · 대기 · 로그인 대기 · 끝(요약) · 못 함(까닭 — 써 보기 없이 채점) · 실패 · 멈춤 */
+function Stage({ name, s, now }) {
+  if (!s || s.state === 'none') return '';
+  const text = {
+    done: html`<span class="ok">✓</span> ${s.text}`,
+    running: `하는 중 ${mmss(now - s.startedAt)}${s.attempt > 1 ? ` (${s.attempt}번째)` : ''}`,
+    wait: html`<span class="flag">다시 하기 전 대기</span>`,
+    queued: html`<span class="muted">대기</span>`,
+    login: html`<span class="flag">로그인 대기</span>`,
+    skip: html`<span class="flag">못 함</span> ${s.why}`,
+    failed: html`<span class="bad">실패</span>`,
+    stopped: html`<span class="muted">멈춤</span>`,
+  }[s.state] || s.state;
+  return html`<div class="ai-stage wrap-cell" title=${s.why || ''}>${name} ${text}</div>`;
+}
+
+/**
+ * 로그인 대기(측정이 심사용 계정으로 로그인하지 못함): 까닭 · [직접 로그인 A/B](아직 못 한 계정 — 이 컴퓨터에 Chrome 창이 뜨고 아이디·
+ * 비밀번호는 넣어 둔다) · [로그인 없이 진행]. 창이 열려 있는 동안은 그 계정을 보인다.
+ */
+function LoginWait({ w, manual, now, off, onLogin, onSkip }) {
+  const need = w.measure.need.length ? w.measure.need : ['a', 'b'];
+  const open = manual && manual.code === w.code;
+  return html`<div class="wrap-cell" style="margin:4px 0">
+    <div>${w.measure.why}</div>
+    ${open ? html`<div class="flag" role="status">계정 ${manual.who.toUpperCase()} 직접 로그인 창이 열려 있습니다(이 컴퓨터의 Chrome, ${mmss(now - manual.since)}) — 로그인하면 저절로 닫힙니다.</div>`
+      : html`<div class="btn-row" style="margin:4px 0 0">
+      ${need.map((who) => html`<button type="button" class="btn btn-sm" disabled=${off} onClick=${() => onLogin(w.code, who)}>직접 로그인 ${who.toUpperCase()}</button>`)}
+      <button type="button" class="link-btn small" disabled=${off} onClick=${() => onSkip(w.code)}>로그인 없이 진행</button></div>`}
+  </div>`;
+}
+
+/**
+ * 코드 심사 표의 'AI 채점' 칸: 측정 · 써 보기(로그인 대기면 [직접 로그인]·[로그인 없이 진행]) · 3회 · AI 평균(갈림) · 받은 자료 · [다시 채점].
+ * loginOff: 직접 로그인·로그인 없이 진행을 못 누를 때(도우미가 다른 일 중·직접 로그인 창이 열려 있음 — 다른 팀 채점 중에는 된다).
+ */
+export function AiCell({ w, now, disabled, onRedo, manual, loginOff, onLogin, onSkip }) {
   if (!w) return html`<td></td>`;
   return html`<td class="small">
+    ${!w.measure ? '' : !w.site ? html`<div class="flag">서비스 주소 없음 — 코드로만 채점</div>` : html`<${Stage} name="측정" s=${w.measure} now=${now} />
+      ${w.measure.state === 'login' ? html`<${LoginWait} w=${w} manual=${manual} now=${now} off=${loginOff} onLogin=${onLogin} onSkip=${onSkip} />` : ''}
+      <${Stage} name="써 보기" s=${w.trial} now=${now} />
+      ${w.account ? '' : html`<div class="flag">심사용 계정 없음</div>`}`}
     <div class="ai-runs">${[0, 1, 2].map((i) => html`<${Run} r=${w.runs[i]} now=${now} />`)}</div>
     ${w.total === null || w.total === undefined ? '' : html`<div>AI 평균 <b>${w.total}</b>${w.spread.length ? html` <span class="flag" title="3번의 채점이 크게 갈림 — [보고서 보기]의 근거를 보세요">갈림: ${w.spread.join(', ')}</span>` : ''}</div>`}
     ${w.files === undefined ? '' : html`<div class="muted">자료 ${w.files}개${w.cut || w.dropped ? html` <span class="flag" title=${`자료가 길어 앞부분만 넣은 파일 ${w.cut}개, 뺀 파일 ${w.dropped}개`}>일부만</span>` : ''}${w.flags ? html`<div class="wrap-cell">${w.flags}</div>` : ''}</div>`}

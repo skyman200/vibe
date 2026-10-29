@@ -12,6 +12,7 @@ import { MentorView } from './views/mentor.js';
 import { LessonView } from './views/lesson.js';
 import { AdminView } from './views/admin.js';
 import { PrivacyView } from './views/privacy.js';
+import { CeremonyView } from './views/ceremony.js';
 import { startUpdates, updateWaiting } from './update.js';
 
 const NAV = [
@@ -136,7 +137,8 @@ function bootConfig() {
 
 function App() {
   const route = useRoute();
-  const tv = route.name === 'board' && route.query.get('tv') === '1';
+  // 행사장 큰 화면: 현황판(#/board?tv=1)과 시상식(#/ceremony)
+  const tv = (route.name === 'board' && route.query.get('tv') === '1') || route.name === 'ceremony';
   const [config, setConfig] = useState(bootConfig);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
@@ -177,9 +179,9 @@ function App() {
   useEffect(() => {
     const titles = {
       home: '안내', apply: '팀 만들기', join: '팀 합류', board: '참가현황', me: '내 신청',
-      judge: '심사', teach: '강사', mentor: '멘토', lesson: '교육 따라 하기', admin: '관리자', privacy: '개인정보 처리 안내',
+      judge: '심사', teach: '강사', mentor: '멘토', lesson: '교육 따라 하기', admin: '관리자', privacy: '개인정보 처리 안내', ceremony: '시상식',
     };
-    document.title = `${tv ? '현황판' : titles[route.name] || '안내'} — DIT 바이브코딩 해커톤 경진대회 2026`;
+    document.title = `${tv && route.name === 'board' ? '현황판' : titles[route.name] || '안내'} — DIT 바이브코딩 해커톤 경진대회 2026`;
   }, [route.name, tv]);
 
   let view;
@@ -196,9 +198,10 @@ function App() {
   else if (route.name === 'lesson') view = html`<${LessonView} />`;
   else if (route.name === 'admin') view = html`<${AdminView} />`;
   else if (route.name === 'privacy') view = html`<${PrivacyView} />`;
+  else if (route.name === 'ceremony') view = html`<${CeremonyView} />`;
   else view = html`<${HomeView} />`;
 
-  // 현황판(#/board?tv=1, 행사장 TV)은 머리·꼬리 없이 화면 전체를 쓴다
+  // 현황판(#/board?tv=1, 행사장 TV)과 시상식은 머리·꼬리 없이 화면 전체를 쓴다
   return html`<${AppCtx.Provider} value=${{ config, reloadConfig: loadConfig, notify, route }}>
     ${tv ? '' : html`<${Header} route=${route} />`}
     <main id="main"><${Boundary} key=${route.name} where="view">${view}<//></main>
@@ -221,7 +224,7 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 /** index.html 이 주소만 보고 미리 그린 안내 화면을 숨기는(html.deep) 화면 — 그 스크립트의 목록과 같다(test/index-html.test.mjs). */
-const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy', 'teach', 'mentor', 'lesson'];
+const DEEP_ROUTES = ['apply', 'join', 'board', 'me', 'judge', 'admin', 'privacy', 'teach', 'mentor', 'lesson', 'ceremony'];
 
 // 다른 사이트가 이 화면을 틀(iframe) 안에 넣어 클릭을 가로채지 못하게 한다(GitHub Pages 는 헤더를 못 붙이므로 스크립트로).
 const root = document.getElementById('app');

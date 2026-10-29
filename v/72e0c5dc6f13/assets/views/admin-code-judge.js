@@ -1,6 +1,6 @@
 // 관리자 · 본선 코드 심사(gas/FinalsJudge.js). ① 마감 커밋 기록(마감 1초 뒤 자동, 빠진 팀만 손으로) → ② [AI 채점 시작] → ③ [점수 올리기]:
 // 이 화면의 버튼이 운영 담당 컴퓨터의 채점 도우미(tools/judge-finals-app.mjs — admin-code-judge-helper.js 가 부른다)를 움직인다. 도우미가
-// 서버에서 개인정보·비밀값을 가린 코드 심사 묶음을 받아 그 컴퓨터의 gjc 로 팀마다 3번 채점하고, [점수 올리기]로 항목별 3회 평균을 올린다
+// 서버에서 개인정보·비밀값을 가린 코드 심사 묶음을 받아 팀마다 측정(Chrome) → 써 보기(gjc) → 3번 채점하고, [점수 올리기]로 항목별 3회 평균을 올린다
 // → 갈림·출처를 보고 필요하면 팀 상세에서 직접 고친다. 대면 심사는 심사위원 화면에서 따로.
 import { html, useState, useEffect, useRef, useApp, api, session, fmtShort, fmtWhen } from '../lib.js';
 import { Modal, useBusy } from '../ui.js';
@@ -56,10 +56,12 @@ function JudgeControls({ st, board, busy, act, forget }) {
   const fails = failures(st.work);
   const canJudge = !busy && !st.busy && !board.open && !board.locked;
   return html`
-    <p class="small muted" style="margin:6px 0 0">채점 도우미${st.practice ? '(연습)' : ''}: ${st.server} · 채점 폴더 <code class="ic">${st.folder}</code> · ${st.gjc.ok === false ? html`<b class="flag">${st.gjc.text}</b>` : st.gjc.text}
-      · <button type="button" class="link-btn small" onClick=${forget}>이 브라우저에서 연결 그만두기</button></p>
+    <p class="small muted" style="margin:6px 0 0">채점 도우미${st.practice ? '(연습)' : ''}: ${st.server} · 채점 폴더 <code class="ic">${st.folder}</code> · ${st.gjc.ok === false ? html`<b class="flag">${st.gjc.text}</b>` : st.gjc.text} · <button
+      type="button" class="link-btn small" onClick=${forget}>이 브라우저에서 연결 그만두기</button></p>
     ${st.error ? html`<div class="notice bad" role="alert">${st.error}</div>` : ''}
     ${st.notice ? html`<div class="notice ok" role="status">${st.notice}</div>` : ''}
+    ${st.pause ? html`<div class="notice warn" role="status"><b>Claude 사용 한도에 걸렸습니다.</b> ${fmtShort(st.pause)}까지 새 채점을 띄우지 않고 기다렸다가
+      저절로 이어서 합니다(걸린 일은 처음부터 다시). 이 컴퓨터의 Claude 계정으로 하는 다른 일(gjc·Claude 대화)을 멈추세요.</div>` : ''}
     <div class="btn-row">
       <button type="button" class="btn btn-sm btn-primary" disabled=${!canJudge} onClick=${() => act('start')}
         title=${board.open ? '제출 마감 뒤에 채점할 수 있습니다' : board.locked ? '심사를 마감해 잠겼습니다' : '바뀐 팀·끝나지 않은 회차만 채점합니다'}>${started && count('done') < count.total ? '이어서 채점' : 'AI 채점 시작'}</button>
@@ -72,7 +74,7 @@ function JudgeControls({ st, board, busy, act, forget }) {
       <div class="btn-row" style="margin-top:8px"><button type="button" class="btn btn-sm btn-primary" disabled=${busy || st.busy} onClick=${() => act('start', { force: true })}>그대로 채점</button>
         <button type="button" class="btn btn-sm" disabled=${busy} onClick=${() => act('cancel')}>취소</button></div></div>` : ''}
     ${st.notes.length ? html`<ul class="bullets small">${st.notes.map((n) => html`<li>${n}</li>`)}</ul>` : ''}
-    ${st.secrets.length ? html`<details class="small"><summary>비밀값처럼 보이는 글 ${st.secrets.length}곳(코드 품질에서 봅니다)</summary><ul>${st.secrets.map((x) => html`<li>${x}</li>`)}</ul></details>` : ''}
+    ${st.secrets.length ? html`<details class="small"><summary>비밀값처럼 보이는 글 ${st.secrets.length}곳(로그인·보안의 비밀값 칸에서 봅니다)</summary><ul>${st.secrets.map((x) => html`<li>${x}</li>`)}</ul></details>` : ''}
     ${fails.length ? html`<ul class="bullets small">${fails.map((f) => html`<li class=${f.state === 'wait' ? 'flag' : 'ai-bad'}>${f.code} ${f.n}회${f.state === 'wait' ? '(다시 시도 대기)' : ''}: ${f.why}</li>`)}</ul>` : ''}`;
 }
 
@@ -188,7 +190,10 @@ export function CodeJudgePanel({ pin, reload, openTeam, stamp }) {
     act('upload').then((res) => { if (res && res.state) reload(); });
   };
   const report = () => act('report').then((res) => { if (res && res.ok) setReportText(res.text); });
-  const redo = (code) => { if (confirm(`${code} 의 채점 3회를 지우고 다시 채점할까요?`)) act('redo', { code }); };
+  const redo = (code) => { if (confirm(`${code} 의 측정·써 보기·채점 3회를 지우고 다시 할까요?`)) act('redo', { code }); };
+  // 로그인 대기인 팀: 이 컴퓨터에 뜬 Chrome 창에서 직접 로그인 · 로그인하지 못한 그대로 진행(로그인이 필요한 칸은 코드로만)
+  const signIn = (code, who) => act('login', { code, who });
+  const skipLogin = (code) => { if (confirm(`${code} 를 로그인하지 못한 그대로 써 보기·채점할까요? 로그인해야 볼 수 있는 칸은 코드로만 봅니다.`)) act('skipLogin', { code }); };
   const wipe = () => { if (confirm('채점 폴더를 통째로 지울까요? 시상이 끝난 뒤에만 지우세요.')) act('wipe'); };
   const status = [
     data.open ? `${fmtWhen(data.deadline)} 마감 뒤에 채점할 수 있습니다`
@@ -196,6 +201,7 @@ export function CodeJudgePanel({ pin, reload, openTeam, stamp }) {
     data.scoredAt ? `점수 ${fmtShort(data.scoredAt)} 올림${scoredNow ? '' : ' — 지난 묶음의 점수입니다'}` : '',
   ].filter(Boolean).join(' · ');
   const redoOff = busy || !st || st.busy || data.open || data.locked;
+  const loginOff = busy || !st || st.phase !== 'idle' || st.stopping || !!st.manual || data.locked;
 
   return html`<section class="panel">
     <div class="panel-h"><h2>코드 심사(50)</h2>
@@ -208,7 +214,9 @@ export function CodeJudgePanel({ pin, reload, openTeam, stamp }) {
       <li><b>마감 커밋 기록</b> 제출 마감(${fmtWhen(data.deadline)}) 1초 뒤 서버가 팀마다 main(기본) 브랜치의 최신 커밋을 자동으로 기록합니다. 연결 오류로 빠진 팀이나 저장소 주소를 고친 팀만 손으로 채웁니다.
         <${PinSchedule} pin=${pin} busy=${busy} onFix=${fixPin} />
         <div class="btn-row"><button class="btn btn-sm" disabled=${busy} onClick=${recordPins} title="기록이 없는 팀만 지금 채웁니다.">마감 커밋 기록</button></div></li>
-      <li><b>AI 채점</b> 서버는 AI 를 부르지 않습니다. 운영 담당 컴퓨터(gjc 가 깔린 맥)의 채점 도우미가 서버에서 개인정보·비밀값을 가린 마감 커밋의 코드(팀 이름·저장소 주소·커밋 없이 무작위 심사 번호 F01…만)를 받아 gjc 로 팀마다 3번 채점합니다(팀 코드는 실행하지 않습니다).
+      <li><b>AI 채점</b> 서버는 AI 를 부르지 않습니다. 운영 담당 컴퓨터(gjc 와 Chrome 이 깔린 맥)의 채점 도우미가 서버에서 개인정보·비밀값을 가린 마감 커밋의 코드(팀 이름·저장소 주소·커밋 없이 무작위 심사 번호 F01…만)와 서비스 주소를 받아 팀마다
+        측정(Chrome 으로 서비스를 열어 화면 사진·Lighthouse 속도, 심사용 계정 로그인) → 써 보기(gjc 가 서비스를 한 번 직접 써 봄) → 채점 3번(도구 없이 코드·측정·써 본 기록으로)을 합니다(팀 코드는 이 컴퓨터에서 실행하지 않습니다).
+        심사용 계정으로 로그인하지 못한 팀은 '로그인 대기'로 멈춥니다 — 그 팀 칸의 [직접 로그인 A·B](이 컴퓨터에 뜬 Chrome 창에 아이디·비밀번호가 들어가 있으니 남은 단계만 누름)나 [로그인 없이 진행]을 누릅니다. 다른 팀은 그동안 계속 채점합니다.
         도우미는 그 컴퓨터의 이 저장소 폴더에서 <code class="ic">AI-code-judge.command</code> 를 한 번 더블클릭해 켜 둡니다(로그인할 때마다 저절로 켜짐). 버튼은 그 컴퓨터에서 연 이 화면에서 누릅니다.
         미리 해 보려면 <code class="ic">AI-code-judge-practice.command</code>(그 컴퓨터 안의 연습 서버 — 실제 점수와 상관없음).
         <${HelperLink} link=${helper.link} fail=${helper.fail} connect=${helper.connect} forget=${helper.forget} />
@@ -223,7 +231,8 @@ export function CodeJudgePanel({ pin, reload, openTeam, stamp }) {
     <div class="table-box"><table class="dtable">
       <thead><tr><th>순서</th><th>팀</th><th>저장소</th><th>마감 커밋</th><th>번호</th><th>심사</th>${data.rubric.map((r) => html`<th title=${r.desc}>${r.label} ${r.max}</th>`)}<th>합계</th><th>출처</th>${st ? html`<th>AI 채점(이 컴퓨터)</th>` : ''}</tr></thead>
       <tbody>${data.teams.map((t) => html`<${Row} key=${t.id} t=${t} rubric=${data.rubric} openTeam=${openTeam}
-        ai=${st ? html`<${AiCell} w=${t.code ? work.get(t.code) : null} now=${st.now} disabled=${redoOff} onRedo=${redo} />` : ''} />`)}</tbody>
+        ai=${st ? html`<${AiCell} w=${t.code ? work.get(t.code) : null} now=${st.now} disabled=${redoOff} onRedo=${redo}
+          manual=${st.manual} loginOff=${loginOff} onLogin=${signIn} onSkip=${skipLogin} />` : ''} />`)}</tbody>
     </table></div>
     <p class="small muted" style="margin:0">합계 칸에 마우스를 올리면 서버에 올린 3번의 점수가 보입니다. 저장소 주소를 고쳐 마감 커밋이 바뀐 팀은 '지난 커밋의 AI 점수'로 표시되니 [AI 채점 시작]으로 다시 채점해 올리세요.</p>
     ${reportText !== null ? html`<${Modal} title="AI 채점 보고서(report.md)" wide onClose=${() => setReportText(null)}><pre class="report">${reportText}</pre></${Modal}>` : ''}

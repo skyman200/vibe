@@ -9,6 +9,7 @@ import { TeamFields, checkTeam } from './apply.js';
 import { PrelimTab } from './admin-prelim.js';
 import { FinalsTab } from './admin-finals.js';
 import { CodeJudgePanel } from './admin-code-judge.js';
+import { ResultsPanel, StagePreviewLinks } from './admin-awards.js';
 
 const COLUMNS = [
   ['draft', '팀 구성 중'],
@@ -54,7 +55,7 @@ async function downloadExcel() {
   return res;
 }
 
-function AdminLogin({ onDone, message }) {
+export function AdminLogin({ onDone, message }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState(message || '');
   const [busy, run] = useBusy();
@@ -615,24 +616,8 @@ function JudgingTab({ data, reload, openTeam }) {
 
     <${CodeJudgePanel} pin=${data.deadlinePin} reload=${reload} openTeam=${openTeam} stamp=${data} />
 
-    <section class="panel">
-      <div class="panel-h"><h2>최종 결과</h2>
-        <div class="btn-row">
-          <label class="check small"><input type="checkbox" checked=${flags.scoringLocked} onChange=${(e) => toggle('scoringLocked', e.target.checked, e.target.checked ? '심사를 마감했습니다.' : '심사를 다시 열었습니다.')} /><span>심사 마감</span></label>
-          <label class="check small"><input type="checkbox" checked=${flags.resultsPublished} onChange=${(e) => toggle('resultsPublished', e.target.checked, e.target.checked ? '시상 결과를 공개했습니다.' : '시상 결과를 비공개로 돌렸습니다.')} /><span>시상 결과 공개</span></label>
-        </div>
-      </div>
-      ${r.warnings.length ? html`<div class="notice warn">${r.warnings.map((w) => html`<div>${w}</div>`)}</div>` : r.rows.length ? html`<div class="notice ok">모든 심사가 끝났습니다.</div>` : ''}
-      <div class="table-box"><table class="dtable">
-        <thead><tr><th>순위</th><th>시상</th><th>팀</th><th>코드(50)</th><th>대면 평균(50)</th><th>심사위원</th><th>총점</th></tr></thead>
-        <tbody>${r.rows.map((x) => html`<tr>
-          <td class="num"><b>${x.dq ? '실격' : x.rank || '-'}</b></td><td>${x.award ? html`<span class="award">${x.award}</span>` : ''}</td>
-          <td>${x.name}${x.dq ? html` <span class="pstate bad">실격</span>` : ''}</td><td class="num">${x.code === null ? '-' : x.code}</td><td class="num">${x.live === null ? '-' : x.live.toFixed(2)}</td>
-          <td class="num">${x.liveCount}/${x.judgeCount}</td><td class="num"><b>${x.total === null ? '-' : x.total.toFixed(2)}</b></td>
-        </tr>`)}</tbody>
-      </table></div>
-      <p class="small muted" style="margin:0">총점 = 코드 심사 + 대면 심사 평균. 같으면 대면 점수가 높은 팀이 위. 실격 팀은 순위·시상 없이 맨 아래. 시상 수는 설정에서 바꿀 수 있습니다.</p>
-    </section>
+    <${ResultsPanel} key=${r.rows.map((x) => `${x.teamId}:${x.award}`).join(',')} r=${r} flags=${flags} toggle=${toggle} reload=${reload}
+      want=${{ gold: Number(data.settings.awardGold) || 0, silver: Number(data.settings.awardSilver) || 0, bronze: Number(data.settings.awardBronze) || 0 }} />
 
     ${issued ? html`<${Modal} title="심사위원 코드" onClose=${() => setIssued(null)}>
       <p><b>${issued.judge.name}</b> 심사위원에게 아래 코드를 전달하세요. 이 창을 닫으면 다시 볼 수 없습니다(필요하면 재발급).</p>
@@ -765,6 +750,8 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       ${yn('resultsPublished', '시상 결과 공개', '켜면 참가현황 맨 위에 수상 팀이 나옵니다.')}
       <label class="check"><input type="checkbox" checked=${form.boardMode === 'contest'} onChange=${(e) => set('boardMode', e.target.checked ? 'contest' : 'recruit')} />
         <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 본선 진출 발표 뒤에만).</div>${errors.boardMode ? html`<div class="err" role="alert">${errors.boardMode}</div>` : ''}</span></label>
+      ${yn('stageShow', '대형 화면 모션그래픽', '대회 모드일 때 현황판(TV, #/board?tv=1)을 행사장 큰 화면용 모션그래픽으로 바꿉니다 — 마감 카운트다운 → 제출 마감 → 심사 중 → 수상 축하(시상 결과 공개 뒤). 저장하면 1분 안에 바뀌고, 끄면 지금의 현황판으로 돌아옵니다.')}
+      <${StagePreviewLinks} />
     </fieldset>
 
     <fieldset class="fs">
