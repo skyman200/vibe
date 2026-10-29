@@ -727,7 +727,7 @@ html.tv .updatebar { display: none; }
 .ed-bar i { width: 1vh; height: 1vh; border-radius: 50%; background: #ff5f57; }
 .ed-bar i:nth-child(2) { background: #febc2e; }
 .ed-bar i:nth-child(3) { background: #28c840; }
-.ed-bar span { margin-left: .6vw; }
+.ed-bar span { margin-left: .6vw; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } /* 긴 프로젝트 이름은 … */
 .ed-prompt { color: #fff; font: 700 1.9vh/1.4 var(--sans); }
 .ed-prompt b { color: #67e8f9; margin-right: .4vw; }
 .ed-caret { display: inline-block; width: .5em; height: 1.1em; margin-left: 2px; vertical-align: -0.15em; background: #67e8f9; animation: caret 1s steps(1) infinite; }

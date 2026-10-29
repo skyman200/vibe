@@ -12,4 +12,4 @@ export const PUBLIC_API_URL = 'https://dit-vibe-hackathon.vercel.app/api/public'
 export const LOG_API_URL = 'https://dit-vibe-hackathon.vercel.app/api/log';
 export const JUDGE_URL = 'http://127.0.0.1:8790';
 export const JUDGE_PRACTICE_URL = 'http://127.0.0.1:8799';
-export const JUDGE_VERSION = 3;
+export const JUDGE_VERSION = 4;

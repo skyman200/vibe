@@ -1,14 +1,14 @@
 // 내 신청: 로그인(학번+비밀번호) → 팀 현황, 초대, 제출, 예선(prelim.js), 본선 결과물 제출(저장소 등록 → 만족도 조사 → 최종 제출,
 // me-finals.js)·멘토링 요청, 본인 정보 정정·철회.
 import {
-  html, useState, useEffect, useRef, useApp, api, session, digits, fmtWhen, STATUS_LABEL,
+  html, useState, useEffect, useRef, useApp, api, session, digits, fmtWhen, toMs, STATUS_LABEL,
 } from '../lib.js';
 import {
   Field, LoadFailed, Modal, Slots, Status, Veil, MemberFields, useBusy, checkMember, serverErrors, focusFirstError,
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
 import { PrelimPanel } from './prelim.js';
-import { DeadlineClock, SurveyPanel, FinalPanel, HelpPanel, useFinalsPoll } from './me-finals.js';
+import { AccessPanel, DeadlineClock, SurveyPanel, FinalPanel, HelpPanel, useFinalsPoll } from './me-finals.js';
 
 const CHECK_LABEL = { ok: '확인 완료', warn: '확인 필요', missing: '찾을 수 없음', error: '점검 실패' };
 const CHECK_TONE = { ok: 'ok', warn: 'warn', missing: 'bad', error: 'bad' };
@@ -123,6 +123,34 @@ function CheckResult({ check }) {
   </div>`;
 }
 
+/**
+ * 새 출발 규칙 안내(gas/Integrity.js startView_): 본선 시작 전 · 출발점 등록 전(마감 전·뒤) · 출발점 기록됨 · 실격.
+ * start: { kickoffAt, startDeadline, deadline, open, firstAt, dq }
+ */
+function StartNotice({ start, phase }) {
+  if (!start) return null;
+  if (start.dq) {
+    return html`<div class="notice bad start-notice"><b>본선 실격 처리되었습니다</b>(${fmtWhen(start.dq.at)}). 사유: ${start.dq.reason}
+      <div class="small" style="margin-top:6px">순위·시상에서 빠집니다. 이의가 있으면 운영진(AI허브센터 051-860-3116)에 알려 주세요.</div></div>`;
+  }
+  if (phase === 'closed') return null;
+  const rule = '본선 결과물은 본선 시작 뒤 새로 만든 GitHub 저장소에서 개발합니다 — 본선 전에 만든 코드(예선 결과물 포함)를 가져오면 실격입니다(공개 시작 저장소 vibe-starter 는 써도 됩니다).';
+  if (!start.open) {
+    return html`<div class="notice start-notice">저장소 등록은 본선 시작 <b class="num">${fmtWhen(start.kickoffAt)}</b> 뒤에 열립니다. ${rule}</div>`;
+  }
+  if (!start.firstAt) {
+    const late = Date.now() > toMs(start.startDeadline) + 59999;
+    return html`<div class=${`notice start-notice ${late ? 'bad' : 'warn'}`}>
+      ${late ? html`<b>출발점 등록 마감(${fmtWhen(start.startDeadline)})이 지났습니다.</b> 지금 등록하면 늦은 출발로 기록됩니다. `
+        : html`<b class="num">${fmtWhen(start.startDeadline)}</b>까지 1교시에 새로 만든 저장소를 등록하세요(출발점). `}
+      첫 커밋이 있어야 출발점이 기록됩니다 — 아직 커밋이 없으면 README 하나라도 올리고 [저장소 다시 점검]을 누르세요.
+      ${start.error ? html`<div class="small" style="margin-top:6px">서버가 마지막 커밋을 기록하지 못했습니다(${start.error}). 잠시 뒤 [저장소 다시 점검]을 눌러 주세요.</div>` : ''}
+      <div class="small" style="margin-top:6px">${rule}</div></div>`;
+  }
+  return html`<div class="notice ok start-notice"><b>출발점 기록 ${fmtWhen(start.firstAt)}</b> — 서버가 이 저장소의 새 커밋을 5분마다 기록합니다.
+    커밋·푸시는 자주(1시간에 한 번은) 해 주세요. 서버가 기록한 개발 과정이 우리 팀이 본선에서 직접 만들었다는 증거가 됩니다.</div>`;
+}
+
 function RepoPanel({ view, onView, config }) {
   const { notify } = useApp();
   const t = view.team;
@@ -145,7 +173,8 @@ function RepoPanel({ view, onView, config }) {
         onView(res.view);
         setErrors({});
         if (t.final && !res.view.team.final) notify('저장소가 바뀌어 최종 제출이 풀렸습니다. 아래에서 다시 [최종 제출]을 눌러 주세요.', 'err');
-        else notify('저장소를 등록했습니다. 이제 이 저장소에 계속 올리면 됩니다.');
+        else if (res.view.start && !res.view.start.firstAt) notify('저장소를 등록했습니다. 첫 커밋을 올리고 [저장소 다시 점검]을 누르면 출발점이 기록됩니다.');
+        else notify('저장소를 등록했습니다. 이제 이 저장소에 자주 커밋·푸시하면 됩니다.');
       } catch (err) {
         setErrors(serverErrors(err));
       }
@@ -163,6 +192,7 @@ function RepoPanel({ view, onView, config }) {
   return html`<section class="panel" id="repo">
     <div class="panel-h"><h2>결과물 제출</h2><span class="small muted">① 저장소 등록 → ② 만족도 조사 → ③ 최종 제출</span></div>
     <${DeadlineClock} view=${view} deadline=${config.event.submitDeadline} />
+    <${StartNotice} start=${view.start} phase=${phase} />
     ${repo ? html`<dl class="kv">
       <dt>GitHub</dt><dd><a href=${repo.url} target="_blank" rel="noopener">${repo.url}</a></dd>
       ${repo.serviceUrl ? html`<dt>서비스</dt><dd><a href=${repo.serviceUrl} target="_blank" rel="noopener">${repo.serviceUrl}</a></dd>` : ''}
@@ -177,11 +207,11 @@ function RepoPanel({ view, onView, config }) {
       <${Field} label="GitHub 저장소 주소" id="repo-url" required error=${errors.repoUrl} hint="https://github.com/계정/저장소 — 심사 기간 동안 공개(Public)">
         <input id="repo-url" class="input mono" inputmode="url" placeholder="https://github.com/team/project" value=${repoUrl} onInput=${(e) => setRepoUrl(e.target.value)} />
       <//>
-      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 앱 주소(https://) — 2일차 시연 심사 때 이 주소로 엽니다. 배포한 뒤 [다시 등록]으로 넣어도 됩니다.">
+      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 앱 주소(https://) — AI 코드 심사와 2일차 시연 심사 때 이 주소로 엽니다. 배포한 뒤 [다시 등록]으로 넣어도 됩니다.">
         <input id="service-url" class="input mono" inputmode="url" placeholder="https://" value=${serviceUrl} onInput=${(e) => setServiceUrl(e.target.value)} />
       <//>
       <label class="check"><input type="checkbox" checked=${agree} onChange=${(e) => setAgree(e.target.checked)} />
-        <span>저장소를 심사 기간 동안 공개로 두고, API 키 같은 비밀정보가 들어 있지 않음을 확인합니다.</span></label>
+        <span>저장소를 심사 기간 동안 공개로 두고, API 키 같은 비밀정보가 들어 있지 않음을 확인합니다. 이 저장소는 본선 시작 뒤에 새로 만들었고 본선 전에 만든 코드(예선 결과물 포함)를 가져오지 않았음을 서약합니다 — 어기면 실격입니다.</span></label>
       ${errors.agree || errors._form ? html`<div class="err" role="alert">${errors.agree || errors._form}</div>` : ''}
       <div><button class="btn btn-primary" type="submit" disabled=${busy}>${busy ? '점검하며 등록하는 중…' : repo ? '다시 등록' : '저장소 등록'}</button></div>
       <p class="small muted" style="margin:0">등록은 한 번이면 됩니다. 그다음에는 이 저장소의 main(기본) 브랜치에 계속 올리면 되고, 심사는 마감 시각의 최신 커밋으로 합니다. 마감 당일에는 팀원 모두 만족도 조사에 응답한 뒤 [최종 제출]을 눌러야 제출이 됩니다.</p>
@@ -495,6 +525,7 @@ export function MeView() {
         ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} onRotate=${rotateInvite} />` : ''}
         <${SubmitPanel} view=${view} onView=${writeView} />
         <${RepoPanel} view=${view} onView=${writeView} config=${config} />
+        <${AccessPanel} view=${view} onView=${writeView} />
         <${SurveyPanel} view=${view} onView=${writeView} />
         <${FinalPanel} view=${view} onView=${writeView} deadline=${config.event.submitDeadline} />
         <${HelpPanel} view=${view} onView=${writeView} />

@@ -137,7 +137,7 @@ export function StageShow({ data, skew, error, preview }) {
   const teams = data && data.mode === 'contest' ? data.teams.filter((t) => t.name) : [];
   // 아래 띠: 본선 팀(없으면 대회 낱말) — 길이에 맞춰 같은 빠르기로 흐른다
   const words = teams.length ? teams.map(teamLine) : KEYWORDS;
-  const flow = Math.max(30, Math.round(words.reduce((n, w) => n + w.length + 4, 0) * 0.55));
+  const flow = Math.max(30, Math.round(words.reduce((n, w) => n + w.length + 4, 0) * 0.47));
   const published = data ? winnersByTier(data.teams) : [];
   const practice = !!pv && pv.scene === 'winners' && !published.length;
   const tiers = practice ? winnersByTier(PRACTICE_ROWS) : published;
