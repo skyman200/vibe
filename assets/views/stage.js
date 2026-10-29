@@ -2,8 +2,9 @@
 // 장면은 시각으로 정한다(stage-logic.js sceneAt): 결과물 제출 마감 카운트다운 → '제출 마감!'(1분) → 심사 중 → 수상 축하(시상 결과 공개 뒤).
 // 남은 시간은 LED 점 글자판(stage-led.js — 흰 네모 점 5×7, 자리 고정)으로, 배경은 3D 장면(stage-fx.js·stage-scene.js — 약한 패럴랙스)이다.
 // 1시간 안은 노란 점, 10분 안은 판의 꺼진 점과 배경이 빨갛게 뛰고(숫자는 흰색 그대로), 마지막 1분은 초만 화면 가득. 점수는 어디에도 없다.
-// ?preview=<장면>(stage-logic.js PREVIEW_SCENES)은 그 장면이 시작하는 가상 시각부터 실제 시간만큼 흐른다 — 관리자가 새 탭에서 미리 보는
-// 것으로 행사장 화면과 서버에는 아무 영향이 없다. 숫자 1~8 키로 장면을 바꾼다. 수상 축하 미리 보기는 공개 전이면 연습용 가짜 팀(연습 표시).
+// 아래 띠와 편집기 장식은 공개 참가현황의 본선 팀(번호·팀 이름·프로젝트)으로 — 실전 화면에 가짜 팀은 나오지 않는다(수상 축하도 공개된 진짜 팀).
+// ?preview=<장면>(stage-logic.js PREVIEW_SCENES)은 연습: 관리자가 로그인한 탭에서(board-tv.js AdminGate) 그 장면이 시작하는 가상 시각부터
+// 실제 시간만큼 흐른다 — 행사장 화면과 서버에는 아무 영향이 없다. 숫자 1~8 키로 장면을 바꾼다. 수상 축하 연습은 공개 전이면 가짜 팀(연습 표시).
 import { html, useState, useEffect, useApp, useInterval, toMs, fmtWhen } from '../lib.js';
 import { countdownView, sceneAt, previewTime, winnersByTier, PREVIEW_SCENES, PRACTICE_ROWS } from './stage-logic.js';
 import { useFx, SPARKS, TOSS_MS, papersOf } from './stage-fx.js';
@@ -19,27 +20,31 @@ const SLOGANS = {
   warn: ['마지막 커밋은 main 브랜치에', '팀원 모두 만족도 조사 → [최종 제출]', '서비스 주소가 휴대폰에서 열리나요?', 'README 필수 항목을 채웠나요?'],
   alert: ['지금 커밋·푸시!', '[최종 제출]을 눌렀나요?', '마감 뒤 커밋은 반영되지 않습니다'],
 };
-/** 편집기 장식: [프롬프트, 생기는 코드 줄] */
+/** 편집기 장식: [프롬프트, 생기는 코드 줄] — 어느 팀의 것도 아닌 흔한 일(제목 줄에 진짜 팀 이름이 돈다) */
 const PROMPTS = [
-  ['강의실 빈자리를 실시간으로 보여 줘', ['export default function Rooms() {', '  const rooms = useRooms();', '  return <Grid items={rooms} />;', '}']],
-  ['로그인하면 내 일정만 보이게 해 줘', ['const { user } = await auth();', 'const plans = await db.plan.findMany({', '  where: { userId: user.id },', '});']],
+  ['첫 화면에 오늘 할 일을 보여 줘', ['export default function Today() {', '  const items = useToday();', '  return <List items={items} />;', '}']],
+  ['로그인하면 내 것만 보이게 해 줘', ['const { user } = await auth();', 'const rows = await db.item.findMany({', '  where: { userId: user.id },', '});']],
   ['휴대폰에서도 깨지지 않게 다듬어 줘', ['@media (max-width: 390px) {', '  .card { width: 100%; }', '  .menu { display: grid; }', '}']],
-  ['배포하고 주소 알려 줘', ['$ git push origin main', '$ vercel --prod', '✓ Production: my-app.vercel.app']],
+  ['배포하고 주소 알려 줘', ['$ git push origin main', '$ vercel --prod', '✓ Production: 배포 완료']],
 ];
+/** 본선 팀 한 줄: '3번 팀 이름 · 프로젝트' */
+const teamLine = (t) => `${t.order ? `${t.order}번 ` : ''}${t.name}${t.projectName ? ` · ${t.projectName}` : ''}`;
 /** 일정표의 시상식 칸(심사 중 화면에 시각을 보인다) */
 const AWARD_BLOCK = finalsBlocks().find((b) => b.what.includes('시상식'));
 
 const pickBy = (list, every) => list[Math.floor(Date.now() / every) % list.length];
 
-/** 프롬프트를 치면 코드가 생기는 편집기(배경 장식, 9초마다 다음 프롬프트) */
-function TypingPanel({ slow }) {
+/** 프롬프트를 치면 코드가 생기는 편집기(배경 장식, 9초마다 다음 프롬프트 · 제목 줄은 본선 팀을 차례로) */
+function TypingPanel({ slow, teams }) {
   const [now, setNow] = useState(Date.now());
   useInterval(() => setNow(Date.now()), slow ? 400 : 90);
   const t = now % 9000;
-  const [prompt, code] = PROMPTS[Math.floor(now / 9000) % PROMPTS.length];
+  const k = Math.floor(now / 9000);
+  const [prompt, code] = PROMPTS[k % PROMPTS.length];
+  const team = teams.length ? teams[k % teams.length] : null;
   const lines = t < 3600 ? 0 : Math.min(code.length, Math.floor((t - 3600) / 500) + 1);
   return html`<div class="stage-editor" aria-hidden="true">
-    <div class="ed-bar"><i></i><i></i><i></i><span>prompt → app.tsx</span></div>
+    <div class="ed-bar"><i></i><i></i><i></i><span>${team ? teamLine(team) : 'prompt → app.tsx'}</span></div>
     <div class="ed-prompt"><b>›</b> ${prompt.slice(0, Math.floor(t / 65))}<span class="ed-caret"></span></div>
     <pre class="ed-code">${code.slice(0, lines).map((l) => html`<div>${l}</div>`)}</pre>
   </div>`;
@@ -91,8 +96,8 @@ function Winners({ tiers, practice }) {
 }
 
 function Picker({ scene, choose, hide }) {
-  return html`<nav class=${`stage-picker${hide ? ' hide' : ''}`} aria-label="미리 볼 장면">
-    <span>미리 보기 — 행사장 화면에는 영향이 없습니다</span>
+  return html`<nav class=${`stage-picker${hide ? ' hide' : ''}`} aria-label="연습할 장면">
+    <span>연습 — 행사장 화면에는 영향이 없습니다</span>
     ${PREVIEW_SCENES.map(([k, label], i) => html`<button type="button" aria-pressed=${scene === k ? 'true' : 'false'} onClick=${() => choose(k)}><b class="num">${i + 1}</b> ${label}</button>`)}
   </nav>`;
 }
@@ -129,6 +134,10 @@ export function StageShow({ data, skew, error, preview }) {
   const start = pv ? previewTime(pv.scene, end) : null;
   const ms = start === null || !Number.isFinite(start) ? Date.now() + skew : start + (Date.now() - pv.at);
   const live = !pv || pv.scene === 'live';
+  const teams = data && data.mode === 'contest' ? data.teams.filter((t) => t.name) : [];
+  // 아래 띠: 본선 팀(없으면 대회 낱말) — 길이에 맞춰 같은 빠르기로 흐른다
+  const words = teams.length ? teams.map(teamLine) : KEYWORDS;
+  const flow = Math.max(30, Math.round(words.reduce((n, w) => n + w.length + 4, 0) * 0.55));
   const published = data ? winnersByTier(data.teams) : [];
   const practice = !!pv && pv.scene === 'winners' && !published.length;
   const tiers = practice ? winnersByTier(PRACTICE_ROWS) : published;
@@ -178,17 +187,17 @@ export function StageShow({ data, skew, error, preview }) {
     <section class="stage-main">${body}</section>
     <footer class="stage-bottom">
       <${NowNext} ms=${ms} cls="stage-plan" />
-      ${scene === 'countdown' && view.tone !== 'alert' && level > 0 ? html`<${TypingPanel} slow=${level < 2} />` : ''}
+      ${scene === 'countdown' && view.tone !== 'alert' && level > 0 ? html`<${TypingPanel} slow=${level < 2} teams=${teams} />` : ''}
     </footer>
-    <div class="marquee" aria-hidden="true"><div class="marquee-in">${KEYWORDS.concat(KEYWORDS).map((w) => html`<span>${w}</span>`)}</div></div>
+    <div class="marquee" aria-hidden="true"><div class="marquee-in" style=${`--flow:${flow}s`}>${words.concat(words).map((w) => html`<span>${w}</span>`)}</div></div>
     <div class="stage-flags">
-      ${pv ? html`<div class="stage-badge">미리 보기 · ${PREVIEW_SCENES.find(([k]) => k === pv.scene)[1]}${practice ? ' · 연습 팀' : ''}</div>` : ''}
+      ${pv ? html`<div class="stage-badge">연습 · ${PREVIEW_SCENES.find(([k]) => k === pv.scene)[1]}${practice ? ' · 가짜 팀' : ''}</div>` : ''}
       ${error ? html`<div class="stage-err" role="status">다시 연결하는 중</div>` : ''}
     </div>
     ${pv ? html`<${Picker} scene=${pv.scene} choose=${choose} hide=${idle} />` : ''}
     <div class=${`stage-ctl${idle ? ' hide' : ''}`}>
       <button class="btn btn-sm" type="button" onClick=${toggleFull}>${full ? '전체 화면 끝내기' : '전체 화면'}</button>
-      <a class="btn btn-sm btn-ghost" href="#/board">나가기</a>
+      <a class="btn btn-sm btn-ghost" href=${pv ? '#/admin?tab=settings' : '#/board'}>나가기</a>
     </div>
   </div>`;
 }

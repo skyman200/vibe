@@ -1,7 +1,8 @@
 // 관리자 [심사] → 최종 결과: 점수표와 수상 팀 고르기(팀마다 금·은·동). 처음에는 점수 순서대로 골라 두고, [수상 팀 저장]한 것이 공식 결과다
 // (공개 참가현황·엑셀·시상식이 모두 따른다 — gas/Admin.js apiAdminAwards_). [점수대로]는 고른 것을 지워 점수 순서로 되돌린다.
-// [시상식 화면 열기]는 이 탭을 전체 화면 시상식(ceremony.js)으로, [연습으로 열기]는 새 탭에 가짜 팀 연습.
-// [설정]의 「대형 화면 모션그래픽」 미리 보기 링크(StagePreviewLinks)도 여기 둔다.
+// [시상식 화면 열기]는 이 탭을 전체 화면 시상식(ceremony.js — 실전: 고른 진짜 수상 팀)으로, [시상식 연습]은 같은 탭에 가짜 팀 연습.
+// [설정]의 「대형 화면 모션그래픽」 연습 링크(StagePreviewLinks — 장면마다 현황판 연습 · 시상식 연습)도 여기 둔다.
+// 연습은 관리자만(admin.js AdminGate) 열고 같은 탭으로 간다 — 관리자 로그인은 탭 메모리에만 있어 새 탭에서는 다시 로그인해야 하므로.
 import { html, useState, useApp, api, session } from '../lib.js';
 import { useBusy } from '../ui.js';
 import { PREVIEW_SCENES } from './stage-logic.js';
@@ -15,6 +16,15 @@ function officialPicks(r) {
   r.rows.forEach((x) => { if (!x.dq && KEY_OF[x.award]) out[x.teamId] = KEY_OF[x.award]; });
   return out;
 }
+/** 연습 화면으로(같은 탭 링크의 onClick). lost: 저장하지 않아 사라질 것('수상 선택'·'설정') · full: 전체 화면(누른 순간에만 켤 수 있다) */
+function goPractice(e, lost, full) {
+  if (lost && !confirm(`저장하지 않은 ${lost}이 있습니다. 연습 화면으로 가면 사라집니다. 계속할까요?`)) {
+    e.preventDefault();
+    return;
+  }
+  if (full && document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+}
+
 const samePicks = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((id) => a[id] === b[id]);
 
 /** r: 관리자 결과(computeResults_) · flags·toggle: 심사 마감·시상 결과 공개 · want: 설정의 상마다 팀 수 */
@@ -66,7 +76,7 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
         <button type="button" class="btn btn-sm btn-primary" disabled=${busy || (!dirty && r.picked)} onClick=${() => send(draft, '수상 팀을 저장했습니다. 공개 참가현황·엑셀·시상식이 이 결과를 따릅니다.')}>수상 팀 저장</button>
         <button type="button" class="btn btn-sm" disabled=${busy || (!r.picked && !dirty)} onClick=${toScore}>점수대로</button>
         <button type="button" class="btn btn-sm" disabled=${busy} onClick=${openCeremony}>시상식 화면 열기</button>
-        <a class="btn btn-sm btn-ghost" href="#/ceremony?practice=1" target="_blank" rel="noopener">연습으로 열기</a>
+        <a class="btn btn-sm btn-ghost" href="#/ceremony?practice=1" onClick=${(e) => goPractice(e, dirty && '수상 선택', true)}>시상식 연습</a>
       </span>
     </div>
     <div class="table-box"><table class="dtable">
@@ -86,9 +96,10 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
   </section>`;
 }
 
-/** [설정] 「대형 화면 모션그래픽」 아래: 장면마다 미리 보기(새 탭 — 행사장 화면·설정과 상관없다) */
-export function StagePreviewLinks() {
-  return html`<div class="stage-links small">미리 보기(새 탭 · 행사장 화면에는 영향 없음):
-    ${PREVIEW_SCENES.map(([k, label]) => html` <a href=${`#/board?tv=1&preview=${k}`} target="_blank" rel="noopener">${label}</a>`)}
-    ${' · '}<a href="#/ceremony?practice=1" target="_blank" rel="noopener">시상식 연습</a></div>`;
+/** [설정] 「대형 화면 모션그래픽」 아래: 장면마다 현황판 연습 · 시상식 연습(이 탭 — 행사장 화면·설정과 상관없다). dirty: 저장하지 않은 설정 */
+export function StagePreviewLinks({ dirty }) {
+  const go = (e, full) => goPractice(e, dirty && '설정', full);
+  return html`<div class="stage-links small">연습(관리자만 · 이 탭에서 열고 [나가기]로 돌아옵니다 · 행사장 화면에는 영향 없음 · 수상 장면은 가짜 팀):
+    ${PREVIEW_SCENES.map(([k, label]) => html` <a href=${`#/board?tv=1&preview=${k}`} onClick=${(e) => go(e, false)}>${label}</a>`)}
+    ${' · '}<a href="#/ceremony?practice=1" onClick=${(e) => go(e, true)}>시상식 연습</a></div>`;
 }

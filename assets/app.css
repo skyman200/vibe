@@ -734,7 +734,7 @@ html.tv .updatebar { display: none; }
 @keyframes caret { 50% { opacity: 0; } }
 .ed-code { margin: .8vh 0 0; font: inherit; color: #a5f3c4; white-space: pre; }
 .marquee { overflow: hidden; white-space: nowrap; padding: 1vh 0 1.6vh; border-top: 1px solid rgba(255, 255, 255, .1); background: rgba(5, 6, 10, .6); }
-.marquee-in { display: inline-flex; animation: marquee 70s linear infinite; font-size: 2.4vh; font-weight: 800; color: rgba(255, 255, 255, .55); }
+.marquee-in { display: inline-flex; animation: marquee var(--flow, 70s) linear infinite; font-size: 2.4vh; font-weight: 800; color: rgba(255, 255, 255, .55); }
 .marquee-in span { padding-right: 3vw; }
 .marquee-in span::before { content: '◆'; margin-right: 3vw; font-size: .7em; vertical-align: .15em; color: rgba(167, 139, 250, .7); }
 @keyframes marquee { to { transform: translateX(-50%); } }
@@ -864,7 +864,7 @@ html.tv .updatebar { display: none; }
   background: rgba(15, 16, 20, .88); font-size: 14px; color: rgba(255, 255, 255, .8); transition: opacity .4s; }
 .cer-keys { margin-right: 6px; }
 .cer-black { position: fixed; inset: 0; z-index: 10; background: #000; }
-.cer-login { min-height: 100vh; background: var(--paper); color: var(--ink); }
+.tv-login { min-height: 100vh; background: var(--paper); color: var(--ink); }
 .cer-wait { display: grid; place-content: center; gap: 16px; min-height: 100vh; text-align: center; font-size: 22px; color: #f3f2ee; }
 .stage[data-fx='0'] .marquee-in, .stage[data-fx='0'] .scan-bar b, .stage[data-fx='0'] .judge-h,
 .ceremony[data-fx='0'] .cer-beams, .ceremony[data-fx='0'] .trophy-spin, .ceremony[data-fx='0'] .cer-spot, [data-fx='0'] .trophy::after { animation: none; }

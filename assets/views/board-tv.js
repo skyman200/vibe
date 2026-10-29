@@ -3,10 +3,11 @@
 // 공개 참가현황(board)을 20초마다 읽고, 읽지 못하면 마지막 화면을 두고 '다시 연결 중'을 띄운다. 화면이 꺼지지 않게(Wake Lock)
 // 요청하고, [전체 화면]을 누를 수 있다(새로 고치면 전체 화면이 풀리므로 TV 는 브라우저 키오스크·F11 을 권한다).
 // 관리자 설정 「대형 화면 모션그래픽」(답의 stage — 대회 모드일 때만)을 켜면 다음 읽기(20초 안)에 모션그래픽(stage.js)으로 바뀌고,
-// 끄면 이 현황판으로 돌아온다. ?preview= 를 붙이면 설정과 상관없이 모션그래픽 미리 보기(관리자가 새 탭에서 확인 — 행사장 화면은 그대로).
+// 끄면 이 현황판으로 돌아온다. ?preview= 를 붙이면 설정과 상관없이 모션그래픽 연습(관리자만 — 로그인부터, 행사장 화면은 그대로).
 import { html, useState, useEffect, api, useApp, useInterval, toMs, fmtWhen } from '../lib.js';
 import { hms, kstClock, useSkew, useWakeLock, useFullscreen, kioskWindow, NowNext } from './tv-bits.js';
 import { StageShow } from './stage.js';
+import { AdminGate } from './admin.js';
 
 const STAGE = {
   building: ['저장소 등록 전', 'idle'],
@@ -46,7 +47,9 @@ export function TvBoard() {
   useInterval(() => setTick((n) => n + 1), stage ? 0 : 1000);
 
   const skew = useSkew(data ? data.phase.now : '');
-  if (stage) return html`<${StageShow} data=${data} skew=${skew} error=${error} preview=${preview} />`;
+  const show = html`<${StageShow} data=${data} skew=${skew} error=${error} preview=${preview} />`;
+  if (preview !== null) return html`<${AdminGate} lead="현황판 연습(모션그래픽 미리 보기)은 관리자만 열 수 있습니다. 행사장 화면에는 영향이 없습니다.">${show}<//>`;
+  if (stage) return show;
   const ms = Date.now() + skew;
   const contest = data && data.mode === 'contest' && data.contest;
   const deadline = contest ? toMs(data.contest.deadline) + 59999 : NaN;

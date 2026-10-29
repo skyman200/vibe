@@ -55,7 +55,7 @@ async function downloadExcel() {
   return res;
 }
 
-export function AdminLogin({ onDone, message }) {
+export function AdminLogin({ onDone, message, lead }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState(message || '');
   const [busy, run] = useBusy();
@@ -72,7 +72,7 @@ export function AdminLogin({ onDone, message }) {
     });
   };
   return html`<div class="wrap page">
-    <div class="page-h"><div><h1>관리자</h1><p>참가자 개인정보 원문을 볼 수 있는 화면입니다. 공용 PC에서는 사용 후 로그아웃하세요.</p></div></div>
+    <div class="page-h"><div><h1>관리자</h1><p>${lead || '참가자 개인정보 원문을 볼 수 있는 화면입니다. 공용 PC에서는 사용 후 로그아웃하세요.'}</p></div></div>
     <form class="box" style="max-width:440px;display:grid;gap:14px" onSubmit=${submit}>
       <${Field} label="관리자 코드" id="admin-code" error=${error}>
         <input id="admin-code" class="input mono" type="password" autocomplete="off" value=${code} onInput=${(e) => setCode(e.target.value)} />
@@ -80,6 +80,16 @@ export function AdminLogin({ onDone, message }) {
       <button class="btn btn-primary" type="submit" disabled=${busy}>${busy ? '확인 중…' : '들어가기'}</button>
     </form>
   </div>`;
+}
+
+/**
+ * 관리자만 보는 큰 화면(현황판 연습 #/board?tv=1&preview=… · 시상식 연습 #/ceremony?practice=1): 이 탭에 관리자 로그인이 없으면
+ * 로그인부터 한다(로그인은 탭 메모리에만 — 관리자 화면에서 같은 탭으로 열면 그대로 이어진다). 연습 화면에는 개인정보가 없다.
+ */
+export function AdminGate({ lead, children }) {
+  const [, setIn] = useState(0);
+  if (session.get('admin')) return children;
+  return html`<div class="tv-login"><${AdminLogin} lead=${lead} onDone=${() => setIn((n) => n + 1)} /></div>`;
 }
 
 /* ───────────── 칸반 ───────────── */
@@ -751,7 +761,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       <label class="check"><input type="checkbox" checked=${form.boardMode === 'contest'} onChange=${(e) => set('boardMode', e.target.checked ? 'contest' : 'recruit')} />
         <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 본선 진출 발표 뒤에만).</div>${errors.boardMode ? html`<div class="err" role="alert">${errors.boardMode}</div>` : ''}</span></label>
       ${yn('stageShow', '대형 화면 모션그래픽', '대회 모드일 때 현황판(TV, #/board?tv=1)을 행사장 큰 화면용 모션그래픽으로 바꿉니다 — 마감 카운트다운 → 제출 마감 → 심사 중 → 수상 축하(시상 결과 공개 뒤). 저장하면 1분 안에 바뀌고, 끄면 지금의 현황판으로 돌아옵니다.')}
-      <${StagePreviewLinks} />
+      <${StagePreviewLinks} dirty=${Object.keys(form).some((k) => k !== 'disabledDepts' && form[k] !== s[k]) || Array.from(disabled).sort().join(',') !== String(s.disabledDepts || '')} />
     </fieldset>
 
     <fieldset class="fs">
@@ -826,12 +836,15 @@ function SettingsTab({ data, reload, onCodeChanged }) {
 
 /* ───────────── 관리자 화면 ───────────── */
 
+const TABS = [['kanban', '칸반'], ['people', '참가자'], ['prelim', '예선'], ['finals', '본선'], ['judging', '심사'], ['settings', '설정']];
+
 export function AdminView() {
-  const { notify } = useApp();
+  const { notify, route } = useApp();
   const [data, setData] = useState(null);
   const [state, setState] = useState(session.get('admin') ? 'loading' : 'login');
   const [message, setMessage] = useState('');
-  const [tab, setTab] = useState('kanban');
+  // #/admin?tab=심사 탭 키 — 시상식·연습 화면에서 나오면 연 탭으로 돌아온다
+  const [tab, setTab] = useState(() => (TABS.some(([k]) => k === route.query.get('tab')) ? route.query.get('tab') : 'kanban'));
   const [openId, setOpenId] = useState('');
   const [exporting, setExporting] = useState(false);
   const [paper, setPaper] = useState(false);
@@ -887,7 +900,7 @@ export function AdminView() {
       </div>
     </div>
     <div class="tabs" role="tablist">
-      ${[['kanban', '칸반'], ['people', '참가자'], ['prelim', '예선'], ['finals', '본선'], ['judging', '심사'], ['settings', '설정']].map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
+      ${TABS.map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
     </div>
     ${tab === 'kanban' ? html`<${KanbanTab} data=${data} reload=${load} openTeam=${setOpenId} />` : ''}
     ${tab === 'people' ? html`<${PeopleTab} data=${data} openTeam=${setOpenId} />` : ''}
