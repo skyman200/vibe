@@ -2,7 +2,8 @@
 // 대회 모드에는 결과물 제출 마감까지 남은 시간과 지금·다음 일정을 위에 두고, #/board?tv=1 은 행사장 TV 용 현황판(board-tv.js)이다.
 import { html, useState, useEffect, useApp, api, useInterval, fmtShort, fmtWhen, toMs } from '../lib.js';
 import { Modal, Slots, Veil } from '../ui.js';
-import { TvBoard, NowNext, useSkew, hms } from './board-tv.js';
+import { TvBoard } from './board-tv.js';
+import { NowNext, useSkew, hms } from './tv-bits.js';
 
 const SERIES = ['공학계열', '보건계열', '자연과학계열', '인문사회계열', '예체능계열'];
 const COL_NOTE = {

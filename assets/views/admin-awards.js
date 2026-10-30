@@ -2,11 +2,12 @@
 // (공개 참가현황·엑셀·시상식이 모두 따른다 — gas/Admin.js apiAdminAwards_). [점수대로]는 고른 것을 지워 점수 순서로 되돌린다.
 // [시상식 화면 열기]는 이 탭을 전체 화면 시상식(ceremony.js — 실전: 고른 진짜 수상 팀)으로, [시상식 연습]은 같은 탭에 가짜 팀 연습.
 // 대회 모드에서 관리자 화면 맨 위 「행사장 큰 화면」(StageBar)도 여기 둔다 — 실전 모션그래픽 켜기·끄기(설정 stageShow), 행사장 화면 열기,
-// 시상식 화면 열기, 장면마다 현황판 연습 · 시상식 연습.
+// 시상식 화면 열기, 실전 장면 고르기(시간표대로 · 제출 마감! · 심사 중 · 수상 축하)와 심사 중 화면에 띄울 팀(발표 순서 · 다음 팀),
+// 화면에 함께 나오는 심사위원 이름, 장면마다 현황판 연습 · 시상식 연습.
 // 연습은 관리자만(admin.js AdminGate) 열고 같은 탭으로 간다 — 관리자 로그인은 탭 메모리에만 있어 새 탭에서는 다시 로그인해야 하므로.
 import { html, useState, useApp, api, session } from '../lib.js';
 import { useBusy } from '../ui.js';
-import { PREVIEW_SCENES } from './stage-logic.js';
+import { PREVIEW_SCENES, LIVE_SCENES, byOrder } from './stage-logic.js';
 
 const TIERS = [['gold', '금상', '금'], ['silver', '은상', '은'], ['bronze', '동상', '동']];
 const KEY_OF = { 금상: 'gold', 은상: 'silver', 동상: 'bronze' };
@@ -102,24 +103,51 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
 }
 
 /**
- * 관리자 화면 맨 위(대회 모드) 「행사장 큰 화면」. 실전: 모션그래픽 켜기·끄기(설정 stageShow 를 곧바로 저장 — 행사장 현황판이 1분 안에 따른다),
- * 행사장 화면 열기(새 탭 — 로그인 없이 열리는 공개 현황판 #/board?tv=1), 시상식 화면 열기(이 탭, 저장한 공식 결과).
+ * 관리자 화면 맨 위(대회 모드) 「행사장 큰 화면」. 실전: 모션그래픽 켜기·끄기(설정 stageShow 를 곧바로 저장 — 행사장 현황판이 몇 초 안에 따른다),
+ * 행사장 화면 열기(새 탭 — 로그인 없이 열리는 공개 현황판 #/board?tv=1), 시상식 화면 열기(이 탭, 저장한 공식 결과),
+ * 켜져 있으면 장면 단추와 심사 팀 칩(누르면 곧바로 adminStage — 전체를 다시 읽지 않는다)·[◀ 이전 팀]·[다음 팀 ▶]·심사위원 이름.
  * 연습: 장면마다 현황판 연습 · 시상식 연습(이 탭, 관리자만 — 행사장 화면과 서버에는 영향 없음, 수상 장면은 가짜 팀).
+ * data: 관리자 화면 답(settings · stage · teams · judges).
  */
-export function StageBar({ settings, reload }) {
+export function StageBar({ data, reload }) {
+  const settings = data.settings;
   const { notify } = useApp();
   const [busy, run] = useBusy();
+  const [ctl, setCtl] = useState(data.stage || { scene: 'auto', teamId: '' });
   const on = settings.stageShow === 'Y';
+  const published = settings.resultsPublished === 'Y';
+  const teams = byOrder(data.teams.filter((t) => t.status === 'selected'), 'presentOrder');
+  const judges = data.judges.slice().sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)).map((j) => j.name);
+  const current = teams.find((t) => t.id === ctl.teamId) || null;
+  const label = (t) => `${t.presentOrder ? `${t.presentOrder}번 ` : ''}${t.name}`;
+  const send = (scene, teamId, done) => run(async () => {
+    try {
+      const res = await api('adminStage', { token: session.get('admin'), scene, teamId });
+      setCtl(res.stage);
+      notify(done);
+    } catch (err) {
+      notify(err.message, 'err');
+    }
+  });
+  const sceneName = (k) => LIVE_SCENES.find(([x]) => x === k)[1];
+  const chooseScene = (k) => send(k, ctl.teamId, `행사장 화면: ${sceneName(k)}`);
+  // 팀을 누르면 심사 중 장면으로 바꾸고 그 팀을 크게 띄운다
+  const chooseTeam = (t) => send('judging', t.id, `행사장 화면: 심사 중 · ${label(t)}`);
+  const step = (d) => {
+    const i = current ? teams.indexOf(current) : -1;
+    const t = teams[i < 0 ? (d > 0 ? 0 : teams.length - 1) : i + d];
+    if (t) chooseTeam(t);
+  };
   const tvUrl = `${location.href.split('#')[0]}#/board?tv=1`;
   const toggle = () => {
-    const ask = on ? '실전 모션그래픽을 끌까요? 행사장 화면이 1분 안에 팀 현황판으로 돌아갑니다.'
-      : '실전 모션그래픽을 켤까요? 행사장 화면(현황판 TV)이 1분 안에 모션그래픽으로 바뀝니다.';
+    const ask = on ? '실전 모션그래픽을 끌까요? 행사장 화면이 곧 팀 현황판으로 돌아갑니다.'
+      : '실전 모션그래픽을 켤까요? 행사장 화면(현황판 TV)이 곧(15초 안에) 모션그래픽으로 바뀝니다.';
     const lost = unsaved();
     if (!confirm(lost ? `${ask}\n저장하지 않은 ${lost}은 사라집니다.` : ask)) return;
     run(async () => {
       try {
         await api('adminSettings', { token: session.get('admin'), settings: { stageShow: on ? 'N' : 'Y' } });
-        notify(on ? '실전 모션그래픽을 껐습니다. 행사장 화면이 1분 안에 팀 현황판으로 돌아갑니다.' : '실전 모션그래픽을 켰습니다. 행사장 화면이 1분 안에 바뀝니다.');
+        notify(on ? '실전 모션그래픽을 껐습니다. 행사장 화면이 곧 팀 현황판으로 돌아갑니다.' : '실전 모션그래픽을 켰습니다. 행사장 화면이 곧 바뀝니다.');
         await reload();
       } catch (err) {
         notify(err.message, 'err');
@@ -135,9 +163,34 @@ export function StageBar({ settings, reload }) {
         <button type="button" class="btn btn-sm" onClick=${() => openCeremony(unsaved())}>시상식 화면 열기</button>
       </div>
     </div>
-    <p class="small muted">${on ? '시간표대로 바뀝니다: 마감 카운트다운 → 제출 마감 → 심사 중 → 수상 축하(시상 결과 공개 뒤 · 저장한 진짜 수상 팀).'
-      : '[실전 켜기]를 누르면 행사장 화면이 모션그래픽(마감 카운트다운 → 제출 마감 → 심사 중 → 수상 축하)으로 바뀝니다.'}${' '}
-      행사장 컴퓨터에서는 <span class="mono">${tvUrl}</span> 을 열고 [전체 화면]을 누르세요(로그인 필요 없음).</p>
+    ${on ? html`<div class="sb-row">
+      <span class="sb-k">화면</span>
+      <div class="seg" role="group" aria-label="행사장 화면 장면">
+        ${LIVE_SCENES.map(([k, name, hint]) => html`<button type="button" data-scene=${k} aria-pressed=${ctl.scene === k ? 'true' : 'false'} disabled=${busy || (k === 'winners' && !published)}
+          onClick=${() => chooseScene(k)}><b>${name}</b><small>${k === 'winners' && !published ? '시상 결과 공개 뒤에 고를 수 있음' : hint}</small></button>`)}
+      </div>
+    </div>
+    <div class="sb-row">
+      <span class="sb-k">심사 팀</span>
+      <div class="team-chips" role="group" aria-label="심사 중 화면에 띄울 팀">
+        ${teams.map((t) => html`<button type="button" class="chip" aria-pressed=${t.id === ctl.teamId ? 'true' : 'false'} disabled=${busy} onClick=${() => chooseTeam(t)}>
+          <b class="num">${t.presentOrder || '-'}</b>${t.name}</button>`)}
+      </div>
+      <span class="btn-row">
+        <button type="button" class="btn btn-sm" disabled=${busy || !teams.length} onClick=${() => step(-1)}>◀ 이전 팀</button>
+        <button type="button" class="btn btn-sm btn-primary" disabled=${busy || !teams.length} onClick=${() => step(1)}>다음 팀 ▶</button>
+        <button type="button" class="btn btn-sm btn-ghost" disabled=${busy || !ctl.teamId} onClick=${() => send(ctl.scene, '', '심사 팀을 화면에서 내렸습니다.')}>팀 내리기</button>
+      </span>
+    </div>
+    <div class="sb-row small"><span class="sb-k">심사위원</span>
+      ${judges.length ? html`<span>${judges.join(' · ')} <span class="muted">— 심사 중 화면에 함께 나옵니다</span></span>`
+        : html`<span class="muted">등록된 심사위원이 없습니다 — [심사] 탭에서 추가하면 화면에 함께 나옵니다</span>`}
+    </div>
+    <p class="small muted">지금: <b>${sceneName(ctl.scene)}</b>${current ? ` · 심사 팀 ${label(current)}` : ''}. 팀을 누르면 행사장 화면이 「심사 중」으로 바뀌고 그 팀이 크게 나옵니다(몇 초 안에) — [다음 팀 ▶]은 발표 순서대로.
+      [시간표대로]를 누르면 남은 시간 → 제출 마감! → 심사 중 → 수상 축하(시상 결과 공개 뒤)로 저절로 바뀝니다.${' '}
+      행사장 컴퓨터에서는 <span class="mono">${tvUrl}</span> 을 열고 [전체 화면]을 누르세요(로그인 필요 없음).</p>`
+      : html`<p class="small muted">[실전 켜기]를 누르면 행사장 화면이 모션그래픽(남은 시간 → 제출 마감! → 심사 중 → 수상 축하)으로 바뀌고, 여기서 장면과 심사 팀을 고를 수 있습니다.${' '}
+      행사장 컴퓨터에서는 <span class="mono">${tvUrl}</span> 을 열고 [전체 화면]을 누르세요(로그인 필요 없음).</p>`}
     <div class="stage-links small">연습(관리자만 · 이 탭에서 열고 [나가기]로 돌아옵니다 · 행사장 화면에는 영향 없음 · 수상 장면은 가짜 팀):
       ${PREVIEW_SCENES.map(([k, label], i) => html`${i ? ' · ' : ' '}<a href=${`#/board?tv=1&preview=${k}`} onClick=${(e) => practice(e, false)}>${label}</a>`)}
       ${' · '}<a href="#/ceremony?practice=1" onClick=${(e) => practice(e, true)}>시상식 연습</a></div>

@@ -50,6 +50,40 @@ export const PREVIEW_SCENES = [
   ['winners', '수상 축하'],
 ];
 
+/**
+ * 실전 장면 [키, 단추 이름, 설명] — 관리자 화면 맨 위 「행사장 큰 화면」에서 고른다(gas/Admin.js STAGE_SCENES, 현황판은 stage 를 몇 초마다 읽음).
+ * 시간표대로는 시각으로 정한 장면(남은 시간 → 제출 마감! → 심사 중 → 수상 축하)이고, 나머지는 고른 장면을 그대로 둔다.
+ */
+export const LIVE_SCENES = [
+  ['auto', '시간표대로', '남은 시간 → 제출 마감! → 심사 중 → 수상 축하'],
+  ['burst', '제출 마감!', '마감 화면을 계속'],
+  ['judging', '심사 중', '심사 팀 · 심사위원 이름'],
+  ['winners', '수상 축하', '시상 결과 공개 뒤'],
+];
+
+/** 실전에서 보일 장면: 고른 장면(ctl) · 시간표대로(또는 모름)면 시각으로 정한 장면(auto). 수상 축하는 공개된 수상 팀이 있을 때만(없으면 시간표대로). */
+export function liveScene(ctl, auto, hasWinners) {
+  if (ctl === 'burst' || ctl === 'judging') return ctl;
+  if (ctl === 'winners' && hasWinners) return 'winners';
+  return auto;
+}
+
+/** 발표 순서(번호 — 없으면 맨 뒤, 같으면 이름)대로. key: 번호 칸 이름(공개 참가현황 order · 관리자 presentOrder) */
+export function byOrder(teams, key = 'order') {
+  const n = (t) => Number(t[key]) || 9999;
+  return teams.slice().sort((a, b) => n(a) - n(b) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
+/** 발표 순서로 그 팀(이름) 다음 팀 — 없거나 마지막이면 null */
+export function nextTeam(teams, name) {
+  const list = byOrder(teams);
+  const i = list.findIndex((t) => t.name === name);
+  return i >= 0 && i + 1 < list.length ? list[i + 1] : null;
+}
+
+/** 연습 화면의 심사위원(실제 이름은 실전 화면에만) */
+export const PRACTICE_JUDGES = ['심사위원 A', '심사위원 B', '심사위원 C'];
+
 const BEFORE_END = { far: 3 * 3600e3 + 5 * 60e3 + 7e3, hour: 40 * 60e3 + 12e3, ten: 10 * 60e3 + 4e3, minute: 64e3, burst: 4e3 };
 
 /** 미리 보기 장면이 시작하는 가상 시각(그 뒤로는 실제 시간만큼 흐른다). live·winners 는 null(지금 시각). */

@@ -64,6 +64,8 @@ export class ApiFailure extends Error {
 
 /** 공개 읽기(설정·참가현황)는 CDN 캐시를 거치는 PUBLIC_URL 로, 나머지는 Apps Script(API_URL)로 보낸다. */
 const PUBLIC_ACTIONS = new Set(['config', 'board']);
+/** 읽기만 하는 요청(공개 읽기 + 행사장 큰 화면 stage — 몇 초 안에 따라야 해서 전달망을 거치지 않는다) */
+const READ_ACTIONS = new Set([...PUBLIC_ACTIONS, 'stage']);
 const NETWORK_MESSAGE = '접속이 몰려 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
 /**
@@ -151,10 +153,10 @@ export async function api(action, payload = {}) {
     try {
       const data = await requestOnce(action, payload);
       // 저장이 끝났다(새 버전 적용을 미뤄 두었다면 이제 적용해도 되는지 update.js 가 본다)
-      if (!PUBLIC_ACTIONS.has(action)) window.dispatchEvent(new CustomEvent('api-saved', { detail: { action } }));
+      if (!READ_ACTIONS.has(action)) window.dispatchEvent(new CustomEvent('api-saved', { detail: { action } }));
       return data;
     } catch (err) {
-      if (err.code === 'NETWORK' && !PUBLIC_ACTIONS.has(action)) ambiguous = true;
+      if (err.code === 'NETWORK' && !READ_ACTIONS.has(action)) ambiguous = true;
       if (!retryable(err.code, action) || attempt >= MAX_ATTEMPTS) {
         err.ambiguous = ambiguous;
         throw err;

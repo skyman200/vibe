@@ -8,7 +8,7 @@ import {
 } from '../ui.js';
 import { InviteBox, TeamFields, checkTeam } from './apply.js';
 import { PrelimPanel } from './prelim.js';
-import { DeadlineClock, SurveyPanel, FinalPanel, HelpPanel, useFinalsPoll } from './me-finals.js';
+import { AccessPanel, DeadlineClock, SurveyPanel, FinalPanel, HelpPanel, useFinalsPoll } from './me-finals.js';
 
 const CHECK_LABEL = { ok: '확인 완료', warn: '확인 필요', missing: '찾을 수 없음', error: '점검 실패' };
 const CHECK_TONE = { ok: 'ok', warn: 'warn', missing: 'bad', error: 'bad' };
@@ -207,7 +207,7 @@ function RepoPanel({ view, onView, config }) {
       <${Field} label="GitHub 저장소 주소" id="repo-url" required error=${errors.repoUrl} hint="https://github.com/계정/저장소 — 심사 기간 동안 공개(Public)">
         <input id="repo-url" class="input mono" inputmode="url" placeholder="https://github.com/team/project" value=${repoUrl} onInput=${(e) => setRepoUrl(e.target.value)} />
       <//>
-      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 앱 주소(https://) — 2일차 시연 심사 때 이 주소로 엽니다. 배포한 뒤 [다시 등록]으로 넣어도 됩니다.">
+      <${Field} label="서비스 주소" id="service-url" optional error=${errors.serviceUrl} hint="배포한 앱 주소(https://) — AI 코드 심사와 2일차 시연 심사 때 이 주소로 엽니다. 배포한 뒤 [다시 등록]으로 넣어도 됩니다.">
         <input id="service-url" class="input mono" inputmode="url" placeholder="https://" value=${serviceUrl} onInput=${(e) => setServiceUrl(e.target.value)} />
       <//>
       <label class="check"><input type="checkbox" checked=${agree} onChange=${(e) => setAgree(e.target.checked)} />
@@ -525,6 +525,7 @@ export function MeView() {
         ${view.can.invite && t.inviteCode ? html`<${InviteBox} team=${t} onRotate=${rotateInvite} />` : ''}
         <${SubmitPanel} view=${view} onView=${writeView} />
         <${RepoPanel} view=${view} onView=${writeView} config=${config} />
+        <${AccessPanel} view=${view} onView=${writeView} />
         <${SurveyPanel} view=${view} onView=${writeView} />
         <${FinalPanel} view=${view} onView=${writeView} deadline=${config.event.submitDeadline} />
         <${HelpPanel} view=${view} onView=${writeView} />

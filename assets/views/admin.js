@@ -901,7 +901,7 @@ export function AdminView() {
         <button class="btn btn-ghost" onClick=${() => { session.clear('admin'); setData(null); setState('login'); }}>로그아웃</button>
       </div>
     </div>
-    ${data.settings.boardMode === 'contest' ? html`<${StageBar} settings=${data.settings} reload=${load} />` : ''}
+    ${data.settings.boardMode === 'contest' ? html`<${StageBar} key=${JSON.stringify(data.stage)} data=${data} reload=${load} />` : ''}
     <div class="tabs" role="tablist">
       ${TABS.map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
     </div>
