@@ -68,14 +68,14 @@ function Countdown({ view, deadline, level }) {
  * 심사 중: 지금 심사 팀(관리자가 고름 — 번호·팀·프로젝트, 바뀌면 새로 떠오른다)·심사위원 이름·다음 팀과 시상식 시각.
  * 코드 심사 항목 이름만(점수 없음) 훑는 모양은 팀을 고르지 않았으면 크게, 골랐으면 한 줄로 작게.
  */
-function Judging({ rubric, team, next, judges }) {
+function Judging({ rubric, team, next, index, count, judges }) {
   return html`<div class=${`stage-judge${team ? ' has-team' : ''}`}>
     <div class="stage-label">순회 시연 심사 · AI 코드 심사</div>
     <div class="judge-h">심사 중</div>
     ${team ? html`<div class="judge-now" key=${team.name}>
-      <div class="jn-tag">지금 심사</div>
-      <div class="jn-name">${team.order ? html`<b class="num">${team.order}</b>` : ''}<span>${team.name}</span></div>
-      ${team.projectName ? html`<div class="jn-proj">${team.projectName}</div>` : ''}
+      <div class="jn-tag">지금 심사${index && count ? html` <span class="num">${index} / ${count}</span>` : ''}</div>
+      <div class="jn-name"><span>${team.name}</span></div>
+      <div class="jn-proj">${[team.projectName, team.order ? `테이블 ${team.order}번` : ''].filter(Boolean).join(' · ')}</div>
     </div>` : ''}
     ${judges.length ? html`<div class="judge-panel"><span class="jp-h">심사위원</span>${judges.map((n) => html`<span class="jp-name">${n}</span>`)}</div>` : ''}
     <div class="scan" aria-hidden="true">
@@ -83,7 +83,7 @@ function Judging({ rubric, team, next, judges }) {
         <span class="scan-k">${c.label}</span><i class="scan-bar"><b></b></i>
       </div>`)}
     </div>
-    <div class="judge-next">${next ? html`다음 <b>${next.order ? `${next.order}번 ` : ''}${next.name}</b>${AWARD_BLOCK ? ' · ' : ''}` : ''}${AWARD_BLOCK ? html`시상식 <b class="num">${AWARD_BLOCK.start}</b>` : ''}</div>
+    <div class="judge-next">${next ? html`다음 <b>${next.name}</b>${AWARD_BLOCK ? ' · ' : ''}` : ''}${AWARD_BLOCK ? html`시상식 <b class="num">${AWARD_BLOCK.start}</b>` : ''}</div>
   </div>`;
 }
 
@@ -158,9 +158,11 @@ export function StageShow({ data, skew, error, preview, ctl }) {
   const auto = sceneAt(ms, { open, end, winners: live && published.length > 0 });
   // 실전은 관리자가 고른 장면(시간표대로면 시각으로) · 연습은 고른 연습 장면의 시각으로
   const scene = pv ? (pv.scene === 'winners' ? 'winners' : auto) : liveScene(ctl && ctl.scene, auto, published.length > 0);
-  // 심사 중: 실전은 고른 팀·심사위원 이름, 연습은 발표 순서 첫 팀과 '심사위원 A·B·C'
-  const judgeTeam = pv ? byOrder(teams)[0] || null : (ctl && ctl.team) || null;
-  const judges = pv ? PRACTICE_JUDGES : (ctl && ctl.judges) || [];
+  // 심사 중: 실전은 고른 팀·다음 팀(관리자가 정한 심사 순서)·심사위원 이름, 연습은 테이블 번호 순 첫 팀과 '심사위원 A·B·C'
+  const judging = pv
+    ? { team: byOrder(teams)[0] || null, index: 1, count: teams.length, judges: PRACTICE_JUDGES }
+    : { team: (ctl && ctl.team) || null, next: (ctl && ctl.next) || null, index: ctl ? ctl.index : 0, count: ctl ? ctl.count : 0, judges: (ctl && ctl.judges) || [] };
+  if (pv && judging.team) judging.next = nextTeam(teams, judging.team.name);
   const view = countdownView(end - ms);
   const tone = scene === 'winners' ? 'gold' : scene === 'burst' ? 'alert' : scene === 'countdown' && view.tone !== 'calm' ? view.tone : 'neon';
   const [canvas, fx, level] = useFx({
@@ -191,7 +193,7 @@ export function StageShow({ data, skew, error, preview, ctl }) {
       <div class="stage-sub">수고하셨습니다 · 마감 시각의 main 브랜치 커밋으로 심사합니다</div>
     </div>`;
   }
-  else if (scene === 'judging') body = html`<${Judging} rubric=${config.rubric.code} team=${judgeTeam} next=${judgeTeam && nextTeam(teams, judgeTeam.name)} judges=${judges} />`;
+  else if (scene === 'judging') body = html`<${Judging} rubric=${config.rubric.code} ...${judging} />`;
   else if (scene === 'winners') body = html`<${Winners} tiers=${tiers} practice=${practice} />`;
   else body = html`<div class="stage-before"><div class="stage-label">결과물 제출 시작</div><div class="before-h num">${fmtWhen(c.open)}</div></div>`;
   const mode = scene === 'countdown' ? ` t-${view.tone} m-${view.mode}` : '';

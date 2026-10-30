@@ -8,7 +8,7 @@ import {
 } from '../lib.js';
 import { Modal } from '../ui.js';
 import { LECTURE_CHECKLIST, fillCall, callStates, roundTimes, roundAt } from './finals-plan.js';
-import { hms } from './board-tv.js';
+import { hms } from './tv-bits.js';
 
 const CHECK = { ok: ['확인 완료', 'ok'], warn: ['확인 필요', 'warn'], missing: ['찾을 수 없음', 'bad'], error: ['점검 실패', 'bad'] };
 

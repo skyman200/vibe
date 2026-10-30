@@ -765,7 +765,7 @@ html.tv .updatebar { display: none; }
 @keyframes judgein { from { opacity: 0; transform: translateY(3vh) scale(.94); } to { opacity: 1; transform: none; } }
 .jn-tag { padding: .4vh 1.2vw; border-radius: 999px; background: #67e8f9; color: #04121a; font-size: 2.4vh; font-weight: 900; }
 .jn-name { display: flex; align-items: baseline; justify-content: center; gap: 1.6vw; font-size: min(6.4vw, 11vh); font-weight: 900; line-height: 1.1; letter-spacing: -0.03em; }
-.jn-name b { font-size: .7em; color: #ffd23f; }
+.jn-tag .num { margin-left: .4em; }
 .jn-proj { max-width: 84vw; font-size: 3.4vh; font-weight: 700; color: rgba(255, 255, 255, .8); text-wrap: balance; }
 .judge-panel { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1vh 1vw; max-width: 90vw; }
 .jp-h { margin-right: .4vw; font-size: 2.6vh; font-weight: 800; color: #c4b5fd; text-shadow: 0 0 1.4vh rgba(0, 0, 0, .9); }
@@ -903,7 +903,14 @@ html.tv .updatebar { display: none; }
 .stage-bar p { margin: 0; }
 .stage-bar .mono { word-break: break-all; }
 .sb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.sb-k { flex: none; width: 64px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.sb-paste { display: grid; gap: 8px; margin-left: 88px; padding: 12px; border: 1px dashed var(--line-2); border-radius: 10px; background: var(--sunk); }
+.sb-paste .textarea { min-height: 120px; font-size: 14px; }
+.sb-preview { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: 14px; font-weight: 600; }
+.sb-preview li { min-width: 150px; }
+.sb-preview b { display: inline-block; min-width: 22px; margin-right: 4px; color: #0e7490; }
+@media (max-width: 720px) { .sb-paste { margin-left: 0; } }
+.sb-k { flex: none; width: 76px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.sb-k small { display: block; font-size: 11px; font-weight: 500; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg button { display: grid; gap: 2px; min-width: 128px; padding: 8px 12px; border: 1px solid var(--line-2); border-radius: 10px; background: #fff; color: var(--ink);
   text-align: left; font: inherit; cursor: pointer; }
@@ -915,7 +922,11 @@ html.tv .updatebar { display: none; }
 .seg button:disabled { opacity: .45; cursor: not-allowed; }
 .team-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 480px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 6px; border: 1px solid var(--line-2); border-radius: 999px; background: #fff; color: var(--ink);
-  font: 600 14px/1.2 var(--sans); cursor: pointer; }
+  font: 600 14px/1.2 var(--sans); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; transition: transform .15s, box-shadow .15s; }
+.chip small { font-size: 11px; font-weight: 500; color: var(--ink-2); }
+.chip[aria-pressed='true'] small { color: rgba(255, 255, 255, .8); }
+/* 끄는 칩: 들려 보이고, 놓을 자리로 다른 칩이 비켜 선다(순서는 끄는 동안 바로 바뀐다) */
+.chip.dragging { cursor: grabbing; transform: scale(1.06); box-shadow: 0 6px 18px rgba(0, 0, 0, .22); border-color: var(--ink); z-index: 1; }
 .chip b { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; border-radius: 999px; background: var(--sunk); font-size: 12px; }
 .chip:hover:not(:disabled) { border-color: var(--ink-2); }
 .chip[aria-pressed='true'] { background: #0e7490; border-color: #0e7490; color: #fff; }

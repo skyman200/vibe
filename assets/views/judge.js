@@ -79,7 +79,7 @@ function ScorePanel({ team, rubric, locked, onSaved, onNext }) {
   return html`<div class="panel" id="judge-panel">
     <div class="panel-h">
       <div>
-        <p class="overline">${team.presentOrder ? `테이블 ${team.presentOrder}번` : '테이블 번호 미정'} · ${team.repDept.name}</p>
+        <p class="overline">심사 ${team.turn}번째${team.presentOrder ? ` · 테이블 ${team.presentOrder}번` : ''} · ${team.repDept.name}</p>
         <h2 style="font-size:24px;margin-top:2px">${team.name}</h2>
       </div>
       <div class="score-total"><b>${filled ? total : '–'}</b><span class="muted">/ 50</span></div>
@@ -165,7 +165,7 @@ export function JudgeView() {
 
   return html`<div class="wrap page">
     <div class="page-h">
-      <div><h1>대면 심사</h1><p>${data.judge.name} · ${done}/${data.teams.length}팀 채점</p></div>
+      <div><h1>대면 심사</h1><p>${data.judge.name} · ${done}/${data.teams.length}팀 채점 · 목록은 심사 순서</p></div>
       <div class="btn-row">
         <button class="btn btn-sm" onClick=${load}>새로 고침</button>
         <button class="btn btn-sm btn-ghost" onClick=${() => { session.clear('judge'); setData(null); setState('login'); }}>로그아웃</button>
@@ -174,7 +174,7 @@ export function JudgeView() {
     ${!data.teams.length ? html`<div class="notice">아직 본선 진출 팀이 없습니다.</div>` : html`<div class="jgrid">
       <ol class="jlist">
         ${data.teams.map((t, i) => html`<li><button aria-current=${t.id === sel ? 'true' : 'false'} onClick=${() => pick(t.id)}>
-          <span class="ord">${t.presentOrder || '-'}</span>
+          <span class="ord">${t.turn}</span>
           <span><b>${t.name}</b><div class="small muted">${t.projectName}</div></span>
           ${t.score ? html`<span class="done">${t.score.total}</span>` : html`<span class="todo">미채점</span>`}
         </button></li>`)}
