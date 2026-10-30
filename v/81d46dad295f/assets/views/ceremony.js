@@ -4,7 +4,7 @@
 // 넘기기: → 스페이스 PageDown Enter 클릭(다음 — 긴장 중이면 바로 공개) · ← Backspace PageUp 오른쪽 클릭(이전) · Home·End · F 전체 화면 · B(.) 화면 가리기.
 // 수상 팀은 열 때 한 번 관리자 결과(adminResults — 고른 상이 공식 결과)를 읽어 이 탭 메모리에만 둔다(공개 전 결과가 저장소에 남지 않게).
 // 관리자 로그인도 메모리에만 있어 새로 고치면 여기서 다시 로그인한다. #/ceremony?practice=1 은 가짜 팀으로 연습(늘 '연습' 표시) —
-// 이것도 관리자만(admin.js AdminGate): [심사] → 최종 결과 · [설정]의 [시상식 연습]으로 같은 탭에서 연다. 나가면 관리자 [심사]로.
+// 이것도 관리자만(admin.js AdminGate): [심사] → 최종 결과 · 관리자 화면 맨 위 「행사장 큰 화면」의 [시상식 연습]으로 같은 탭에서 연다. 나가면 관리자 [심사]로.
 import { html, useState, useEffect, useRef, useApp, api, session } from '../lib.js';
 import { ceremonySteps, ceremonyKey, PRACTICE_ROWS } from './stage-logic.js';
 import { useFx, SPARKS, TOSS_MS, papersOf } from './stage-fx.js';

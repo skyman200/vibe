@@ -86,7 +86,7 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
       </span>
     </div>
     <div class="table-box"><table class="dtable">
-      <thead><tr><th>순위</th><th>시상</th><th>수상 고르기</th><th>팀</th><th>코드(50)</th><th>대면 평균(50)</th><th>심사위원</th><th>총점</th></tr></thead>
+      <thead><tr><th>순위</th><th>시상</th><th>수상 고르기</th><th>팀</th><th>코드(50)</th><th>대면 평균(50)</th><th>심사위원</th><th>감점</th><th>총점</th></tr></thead>
       <tbody>${r.rows.map((x) => html`<tr key=${x.teamId}>
         <td class="num"><b>${x.dq ? '실격' : x.rank || '-'}</b></td>
         <td>${x.award ? html`<span class="award">${x.award}</span>` : ''}${x.scoreAward !== x.award ? html`<div class="small muted">점수대로 ${x.scoreAward || '비수상'}</div>` : ''}</td>
@@ -94,10 +94,11 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
           ${TIERS.map(([k, label, short]) => html`<button type="button" class=${`pick-${k}`} aria-pressed=${draft[x.teamId] === k ? 'true' : 'false'} title=${label} onClick=${() => pick(x.teamId, k)}>${short}</button>`)}
         </span>`}</td>
         <td>${x.name}${x.dq ? html` <span class="pstate bad">실격</span>` : ''}</td><td class="num">${x.code === null ? '-' : x.code}</td><td class="num">${x.live === null ? '-' : x.live.toFixed(2)}</td>
-        <td class="num">${x.liveCount}/${x.judgeCount}</td><td class="num"><b>${x.total === null ? '-' : x.total.toFixed(2)}</b></td>
+        <td class="num">${x.liveCount}/${x.judgeCount}</td>
+        <td class="num">${x.penalty ? html`<b>-${x.penalty}</b><div class="small muted">${x.lateNote}</div>` : ''}</td><td class="num"><b>${x.total === null ? '-' : x.total.toFixed(2)}</b></td>
       </tr>`)}</tbody>
     </table></div>
-    <p class="small muted" style="margin:0">총점 = 코드 심사 + 대면 심사 평균. 같으면 대면 점수가 높은 팀이 위. 실격 팀은 순위·시상 없이 맨 아래. 시상 수는 설정에서 바꿀 수 있습니다.
+    <p class="small muted" style="margin:0">총점 = 코드 심사 + 대면 심사 평균 − 늦은 제출 감점(설정의 기준 시각 뒤 최종 제출·미제출 팀). 같으면 대면 점수가 높은 팀이 위. 실격 팀은 순위·시상 없이 맨 아래. 시상 수는 설정에서 바꿀 수 있습니다.
       수상 고르기는 처음에 점수 순서대로 채워 두었습니다 — 심사위원 협의로 바꿀 때 누르고(같은 단추를 다시 누르면 비수상) [수상 팀 저장]을 누르세요.</p>
   </section>`;
 }

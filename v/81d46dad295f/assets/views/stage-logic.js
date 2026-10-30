@@ -50,12 +50,101 @@ export const PREVIEW_SCENES = [
   ['winners', '수상 축하'],
 ];
 
+/**
+ * 실전 장면 [키, 단추 이름, 설명] — 관리자 화면 맨 위 「행사장 큰 화면」에서 고른다(gas/Admin.js STAGE_SCENES, 현황판은 stage 를 몇 초마다 읽음).
+ * 시간표대로는 시각으로 정한 장면(남은 시간 → 제출 마감! → 심사 중 → 수상 축하)이고, 나머지는 고른 장면을 그대로 둔다.
+ */
+export const LIVE_SCENES = [
+  ['auto', '시간표대로', '남은 시간 → 제출 마감! → 심사 중 → 수상 축하'],
+  ['burst', '제출 마감!', '마감 화면을 계속'],
+  ['judging', '심사 중', '심사 팀 · 심사위원 이름'],
+  ['winners', '수상 축하', '시상 결과 공개 뒤'],
+];
+
+/** 실전에서 보일 장면: 고른 장면(ctl) · 시간표대로(또는 모름)면 시각으로 정한 장면(auto). 수상 축하는 공개된 수상 팀이 있을 때만(없으면 시간표대로). */
+export function liveScene(ctl, auto, hasWinners) {
+  if (ctl === 'burst' || ctl === 'judging') return ctl;
+  if (ctl === 'winners' && hasWinners) return 'winners';
+  return auto;
+}
+
+/** 발표 순서(번호 — 없으면 맨 뒤, 같으면 이름)대로. key: 번호 칸 이름(공개 참가현황 order · 관리자 presentOrder) */
+export function byOrder(teams, key = 'order') {
+  const n = (t) => Number(t[key]) || 9999;
+  return teams.slice().sort((a, b) => n(a) - n(b) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
+/**
+ * 심사 순서(관리자가 끌어서 정함 — gas/Admin.js judgingOrder_ 와 같은 규칙): order(팀 ID)에 든 팀이 먼저 그 차례로,
+ * 나머지는 테이블 번호(key)·이름 순으로 뒤에. 테이블 번호는 바꾸지 않는다.
+ */
+export function judgingOrder(teams, order, key = 'presentOrder') {
+  const at = new Map(order.map((id, i) => [id, i]));
+  const pos = (t) => (at.has(t.id) ? at.get(t.id) : order.length);
+  return byOrder(teams, key).map((t, i) => [t, i]).sort((a, b) => pos(a[0]) - pos(b[0]) || a[1] - b[1]).map(([t]) => t);
+}
+
+/** 이름 비교용: 소문자 · 글자(영문·숫자·한글)만 — 'Re:zone' · 'RE:ZONE' · '최강!간호' · '최강간호' 를 같게 */
+const squash = (s) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+
+/**
+ * 붙여 넣은 심사 순서(한 줄에 한 팀 — 단톡방 글을 그대로 붙여 넣어도 된다) → 팀 ID 차례. 줄마다 팀 이름(괄호 안·밖 따로도)이
+ * 들어 있으면 그 팀(여럿이면 가장 길게 맞은 팀), 없으면 팀원 이름이 들어 있는 팀. 똑같이 맞는 팀이 여럿이면 알아보지 못한 줄.
+ * teams: [{ id, name, members: [이름] }] · 답: order(줄 차례) · unknown(알아보지 못한 줄) · dup(같은 팀이 또 나온 줄) · missing(줄에 없는 팀 ID, teams 차례)
+ */
+export function matchOrder(text, teams) {
+  const keys = teams.map((t) => {
+    const n = String(t.name || '');
+    const names = [n, n.replace(/\(.*?\)/g, ''), ...(n.match(/\((.*?)\)/g) || []).map((x) => x.slice(1, -1))].map(squash).filter((v) => v.length >= 2);
+    return { id: t.id, names: [...new Set(names)], members: (t.members || []).map(squash).filter((v) => v.length >= 2) };
+  });
+  const order = [];
+  const unknown = [];
+  const dup = [];
+  String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).forEach((line) => {
+    const s = squash(line);
+    const best = (pick) => {
+      let top = 0;
+      let hit = [];
+      keys.forEach((k) => {
+        const len = Math.max(0, ...pick(k).filter((v) => s.includes(v)).map((v) => v.length));
+        if (len > top) { top = len; hit = [k.id]; } else if (len && len === top) hit.push(k.id);
+      });
+      return hit;
+    };
+    let hit = best((k) => k.names);
+    if (!hit.length) hit = best((k) => k.members);
+    if (hit.length !== 1) unknown.push(line);
+    else if (order.includes(hit[0])) dup.push(line);
+    else order.push(hit[0]);
+  });
+  return { order, unknown, dup, missing: teams.map((t) => t.id).filter((id) => !order.includes(id)) };
+}
+
+/** list 의 from 번째를 to 자리로 옮긴 새 배열 */
+export function moveItem(list, from, to) {
+  const out = list.slice();
+  const [x] = out.splice(from, 1);
+  out.splice(to, 0, x);
+  return out;
+}
+
+/** 발표 순서로 그 팀(이름) 다음 팀 — 없거나 마지막이면 null */
+export function nextTeam(teams, name) {
+  const list = byOrder(teams);
+  const i = list.findIndex((t) => t.name === name);
+  return i >= 0 && i + 1 < list.length ? list[i + 1] : null;
+}
+
+/** 연습 화면의 심사위원(실제 이름은 실전 화면에만) */
+export const PRACTICE_JUDGES = ['심사위원 A', '심사위원 B', '심사위원 C'];
+
 const BEFORE_END = { far: 3 * 3600e3 + 5 * 60e3 + 7e3, hour: 40 * 60e3 + 12e3, ten: 10 * 60e3 + 4e3, minute: 64e3, burst: 4e3 };
 
 /** 미리 보기 장면이 시작하는 가상 시각(그 뒤로는 실제 시간만큼 흐른다). live·winners 는 null(지금 시각). */
 export function previewTime(scene, end) {
   if (BEFORE_END[scene]) return end - BEFORE_END[scene];
-  if (scene === 'judging') return end + 40 * 60e3;   // 마감 40분 뒤(기본 일정이면 14:11 순회 시연 심사 1~7번)
+  if (scene === 'judging') return end + 40 * 60e3;   // 마감 40분 뒤(기본 일정이면 14:11 순회 시연 심사 1~7번째 팀)
   return null;
 }
 
