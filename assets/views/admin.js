@@ -642,7 +642,7 @@ function JudgingTab({ data, reload, openTeam }) {
 const SETTING_GROUPS = [
   ['행사', [['eventName', '행사명', 'text'], ['eventPeriod', '행사 일시(표시용)', 'text'], ['venue', '장소', 'text']]],
   ['기간(한국 시각)', [['applyStart', '접수 시작', 'datetime'], ['applyEnd', '접수 마감', 'datetime'], ['submitOpen', '결과물 제출 시작', 'datetime'], ['kickoffAt', '본선 시작(저장소 등록 열림)', 'datetime'], ['startDeadline', '출발점 등록 마감', 'datetime'], ['submitDeadline', '결과물 제출 마감', 'datetime']]],
-  ['늦은 제출 감점', [['lateAfter', '이 시각 뒤 최종 제출(또는 미제출) 팀은 감점 — 마감을 늘려도 원래 마감', 'datetime'], ['latePenalty', '총점에서 뺄 점수(0이면 감점 없음)', 'number']]],
+  ['늦은 제출 감점', [['lateAfter', '이 시각 뒤 최종 제출(또는 미제출) 팀은 감점 — 마감을 늘려도 원래 마감', 'datetime'], ['latePenalty', '총점에서 뺄 점수(0이면 감점 없음)', 'number'], ['lateExempt', '감점하지 않을 팀 — 팀 이름을 쉼표로 나눠 적음(운영진이 늦지 않은 것으로 본 팀)', 'text']]],
   ['인원', [['applicantCap', '접수 정원(명) — 4의 배수 권장', 'number'], ['selectTarget', '본선 진출 팀 수', 'number']]],
   ['시상 팀 수', [['awardGold', '금상', 'number'], ['awardSilver', '은상', 'number'], ['awardBronze', '동상', 'number']]],
   ['문의처', [['contactName', '문의처', 'text'], ['contactPhone', '전화', 'text'], ['contactEmail', '이메일', 'text']]],

@@ -2,9 +2,10 @@
 // 지금·다음 일정(finals-plan.js), 본선 팀의 제출 단계(저장소 등록 전 · 등록함 · 최종 제출)만 보인다 — 팀원·멘토링 정보는 없다.
 // 공개 참가현황(board)을 20초마다 읽고, 읽지 못하면 마지막 화면을 두고 '다시 연결 중'을 띄운다. 화면이 꺼지지 않게(Wake Lock)
 // 요청하고, [전체 화면]을 누를 수 있다(새로 고치면 전체 화면이 풀리므로 TV 는 브라우저 키오스크·F11 을 권한다).
-// 관리자 설정 「대형 화면 모션그래픽」(답의 stage — 대회 모드일 때만)을 켜면 다음 읽기(20초 안)에 모션그래픽(stage.js)으로 바뀌고,
-// 끄면 이 현황판으로 돌아온다. ?preview= 를 붙이면 설정과 상관없이 모션그래픽 연습(관리자만 — 로그인부터, 행사장 화면은 그대로).
-import { html, useState, useEffect, api, useApp, useInterval, toMs, fmtWhen } from '../lib.js';
+// 관리자 화면 맨 위 「행사장 큰 화면」에서 [실전 켜기]를 누르면(설정 stageShow — 대회 모드일 때만) 모션그래픽(stage.js)으로 바뀌고,
+// 끄면 이 현황판으로 돌아온다. 켜짐·고른 장면·심사 팀·심사위원은 작은 답(stage — 전달망 없이)을 켜져 있으면 5초, 꺼져 있으면 15초마다 읽어
+// 몇 초 안에 따른다. ?preview= 를 붙이면 설정과 상관없이 모션그래픽 연습(관리자만 — 로그인부터, 행사장 화면은 그대로).
+import { html, useState, useEffect, useRef, api, useApp, useInterval, toMs, fmtWhen } from '../lib.js';
 import { hms, kstClock, useSkew, useWakeLock, useFullscreen, kioskWindow, NowNext } from './tv-bits.js';
 import { StageShow } from './stage.js';
 import { AdminGate } from './admin.js';
@@ -41,13 +42,30 @@ export function TvBoard() {
     document.documentElement.classList.add('tv');
     return () => document.documentElement.classList.remove('tv');
   }, []);
-  const stage = preview !== null || !!(data && data.stage);
+  // 행사장 큰 화면: undefined 아직 못 읽음(참가현황의 stage 로) · null 꺼짐 · { scene, team, judges } — 못 읽으면 마지막 것을 그대로
+  const [ctl, setCtl] = useState(undefined);
+  const asking = useRef(false);
+  const loadStage = async () => {
+    if (asking.current) return;
+    asking.current = true;
+    try {
+      setCtl((await api('stage')).stage);
+    } catch (e) {
+      // 다음 차례에 다시
+    } finally {
+      asking.current = false;
+    }
+  };
+  useEffect(() => { if (preview === null) loadStage(); }, []);
+  const on = ctl === undefined ? !!(data && data.stage) : !!ctl;
+  useInterval(loadStage, preview !== null ? 0 : on ? 5000 : 15000);
+  const stage = preview !== null || on;
   useInterval(load, 20000);
   // 모션그래픽은 스스로 0.25초마다 다시 그린다
   useInterval(() => setTick((n) => n + 1), stage ? 0 : 1000);
 
   const skew = useSkew(data ? data.phase.now : '');
-  const show = html`<${StageShow} data=${data} skew=${skew} error=${error} preview=${preview} />`;
+  const show = html`<${StageShow} data=${data} skew=${skew} error=${error} preview=${preview} ctl=${ctl || null} />`;
   if (preview !== null) return html`<${AdminGate} lead="현황판 연습(모션그래픽 미리 보기)은 관리자만 열 수 있습니다. 행사장 화면에는 영향이 없습니다.">${show}<//>`;
   if (stage) return show;
   const ms = Date.now() + skew;
