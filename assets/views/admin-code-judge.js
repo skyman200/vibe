@@ -33,7 +33,7 @@ function Row({ t, rubric, openTeam, ai }) {
   const spread = t.spread.map((k) => (k === 'total' ? '총점' : (rubric.find((c) => c.key === k) || { label: k }).label));
   const runs = t.runs.map((r, i) => `${i + 1}회 ${r.join(' / ')} = ${r.reduce((a, x) => a + x, 0)}점`).join('\n');
   return html`<tr>
-    <td class="num">${t.order || '-'}</td>
+    <td class="num">${t.turn}</td>
     <td><button class="link-btn" onClick=${() => openTeam(t.id)}>${t.name}</button>
       ${t.state !== 'open' && !t.final ? html`<div class="small muted">최종 제출 안 함</div>` : ''}</td>
     <td>${t.repo ? html`<a href=${t.repo} target="_blank" rel="noopener">${t.repo.replace('https://github.com/', '')}</a>` : html`<span class="muted">미제출</span>`}</td>

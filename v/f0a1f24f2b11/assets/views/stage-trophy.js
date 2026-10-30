@@ -5,7 +5,7 @@
 import { html } from '../lib.js';
 
 /** 그림 크기(px) — 받기 전에도 자리를 잡아 화면이 흔들리지 않게 */
-const SIZE = { gold: [885, 960], silver: [885, 960], bronze: [874, 960] };
+const SIZE = { gold: [877, 960], silver: [877, 960], bronze: [874, 960] };
 const src = (tier) => `assets/img/trophy-${tier}.webp`;
 
 const held = [];

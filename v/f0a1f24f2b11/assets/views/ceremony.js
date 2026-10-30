@@ -3,13 +3,14 @@
 // 팀마다 조명·도는 트로피·팀 이름(프로젝트 이름)·색종이, 금상은 더 긴 긴장(2.5초)·빛줄기·불꽃·금가루. 소리는 없다(행사장 음향이 따로).
 // 넘기기: → 스페이스 PageDown Enter 클릭(다음 — 긴장 중이면 바로 공개) · ← Backspace PageUp 오른쪽 클릭(이전) · Home·End · F 전체 화면 · B(.) 화면 가리기.
 // 수상 팀은 열 때 한 번 관리자 결과(adminResults — 고른 상이 공식 결과)를 읽어 이 탭 메모리에만 둔다(공개 전 결과가 저장소에 남지 않게).
-// 관리자 로그인도 메모리에만 있어 새로 고치면 여기서 다시 로그인한다. #/ceremony?practice=1 은 로그인 없이 가짜 팀으로 연습(늘 '연습' 표시).
+// 관리자 로그인도 메모리에만 있어 새로 고치면 여기서 다시 로그인한다. #/ceremony?practice=1 은 가짜 팀으로 연습(늘 '연습' 표시) —
+// 이것도 관리자만(admin.js AdminGate): [심사] → 최종 결과 · 관리자 화면 맨 위 「행사장 큰 화면」의 [시상식 연습]으로 같은 탭에서 연다. 나가면 관리자 [심사]로.
 import { html, useState, useEffect, useRef, useApp, api, session } from '../lib.js';
 import { ceremonySteps, ceremonyKey, PRACTICE_ROWS } from './stage-logic.js';
 import { useFx, SPARKS, TOSS_MS, papersOf } from './stage-fx.js';
 import { useWakeLock, useFullscreen, useIdle } from './tv-bits.js';
 import { Trophy, preloadTrophies } from './stage-trophy.js';
-import { AdminLogin } from './admin.js';
+import { AdminLogin, AdminGate } from './admin.js';
 
 /** 팀 이름을 보이기 전 긴장(ms) */
 const SUSPENSE = { gold: 2500, silver: 1100, bronze: 900 };
@@ -131,7 +132,7 @@ function Show({ rows, practice, exit }) {
       <button type="button" class="btn btn-sm" onClick=${prev}>이전</button>
       <button type="button" class="btn btn-sm" onClick=${next}>다음</button>
       <button type="button" class="btn btn-sm" onClick=${toggleFull}>${full ? '전체 화면 끝내기' : '전체 화면'}</button>
-      <button type="button" class="btn btn-sm btn-ghost" onClick=${exit}>${practice ? '닫기' : '나가기'}</button>
+      <button type="button" class="btn btn-sm btn-ghost" onClick=${exit}>나가기</button>
     </div>
     ${black ? html`<div class="cer-black"></div>` : ''}
   </div>`;
@@ -157,7 +158,7 @@ function Official({ exit }) {
       }
     });
   }, [state]);
-  if (state === 'login') return html`<div class="cer-login"><${AdminLogin} message=${message} onDone=${() => { setMessage(''); setState('loading'); }} /></div>`;
+  if (state === 'login') return html`<div class="tv-login"><${AdminLogin} message=${message} onDone=${() => { setMessage(''); setState('loading'); }} /></div>`;
   if (state === 'failed') {
     return html`<div class="cer-wait"><p>수상 팀을 불러오지 못했습니다. ${message}</p>
       <div class="btn-row"><button class="btn" type="button" onClick=${() => setState('loading')}>다시 시도</button><button class="btn btn-ghost" type="button" onClick=${exit}>나가기</button></div></div>`;
@@ -177,9 +178,10 @@ export function CeremonyView() {
   }, []);
   const exit = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    // 연습은 새 탭으로 열었으니 닫는다 — 닫히지 않으면(주소를 직접 연 탭) 관리자 화면으로
-    if (practice) window.close();
-    setTimeout(() => { location.hash = '#/admin'; }, practice ? 300 : 0);
+    location.hash = '#/admin?tab=judging';
   };
-  return practice ? html`<${Show} key="practice" rows=${PRACTICE_ROWS} practice exit=${exit} />` : html`<${Official} key="admin" exit=${exit} />`;
+  if (!practice) return html`<${Official} key="admin" exit=${exit} />`;
+  return html`<${AdminGate} key="practice" lead="시상식 연습(가짜 팀)은 관리자만 열 수 있습니다. 행사장 화면에는 영향이 없습니다.">
+    <${Show} rows=${PRACTICE_ROWS} practice exit=${exit} />
+  <//>`;
 }
