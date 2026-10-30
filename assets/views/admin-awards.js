@@ -1,7 +1,8 @@
 // 관리자 [심사] → 최종 결과: 점수표와 수상 팀 고르기(팀마다 금·은·동). 처음에는 점수 순서대로 골라 두고, [수상 팀 저장]한 것이 공식 결과다
 // (공개 참가현황·엑셀·시상식이 모두 따른다 — gas/Admin.js apiAdminAwards_). [점수대로]는 고른 것을 지워 점수 순서로 되돌린다.
 // [시상식 화면 열기]는 이 탭을 전체 화면 시상식(ceremony.js — 실전: 고른 진짜 수상 팀)으로, [시상식 연습]은 같은 탭에 가짜 팀 연습.
-// [설정]의 「대형 화면 모션그래픽」 연습 링크(StagePreviewLinks — 장면마다 현황판 연습 · 시상식 연습)도 여기 둔다.
+// 대회 모드에서 관리자 화면 맨 위 「행사장 큰 화면」(StageBar)도 여기 둔다 — 실전 모션그래픽 켜기·끄기(설정 stageShow), 행사장 화면 열기,
+// 시상식 화면 열기, 장면마다 현황판 연습 · 시상식 연습.
 // 연습은 관리자만(admin.js AdminGate) 열고 같은 탭으로 간다 — 관리자 로그인은 탭 메모리에만 있어 새 탭에서는 다시 로그인해야 하므로.
 import { html, useState, useApp, api, session } from '../lib.js';
 import { useBusy } from '../ui.js';
@@ -16,6 +17,16 @@ function officialPicks(r) {
   r.rows.forEach((x) => { if (!x.dq && KEY_OF[x.award]) out[x.teamId] = KEY_OF[x.award]; });
   return out;
 }
+/** 지금 화면에서 저장하지 않아 다른 화면으로 가면 사라질 것: '수상 선택'([심사]) · '설정'([설정]) · '' */
+const unsaved = () => (document.querySelector('.award-dirty') ? '수상 선택' : document.querySelector('.settings-dirty') ? '설정' : '');
+
+/** 이 탭을 시상식 화면(실전 — 저장한 공식 결과)으로. 버튼을 누른 이 순간에만 전체 화면을 켤 수 있다(브라우저 규칙) — 주소만 바꾸므로 시상식 화면에서도 그대로 */
+function openCeremony(lost) {
+  if (lost && !confirm(`저장하지 않은 ${lost}이 있습니다. 시상식 화면은 저장한 공식 결과로 열리고, 저장하지 않은 것은 사라집니다. 계속할까요?`)) return;
+  if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  location.hash = '#/ceremony';
+}
+
 /** 연습 화면으로(같은 탭 링크의 onClick). lost: 저장하지 않아 사라질 것('수상 선택'·'설정') · full: 전체 화면(누른 순간에만 켤 수 있다) */
 function goPractice(e, lost, full) {
   if (lost && !confirm(`저장하지 않은 ${lost}이 있습니다. 연습 화면으로 가면 사라집니다. 계속할까요?`)) {
@@ -53,12 +64,6 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
     if (r.picked) send(null, '점수 순서대로 되돌렸습니다.');
     else setDraft(saved);
   };
-  const openCeremony = () => {
-    if (dirty && !confirm('저장하지 않은 수상 선택이 있습니다. 저장한 공식 결과로 시상식 화면을 열까요?')) return;
-    // 버튼을 누른 이 순간에만 전체 화면을 켤 수 있다(브라우저 규칙) — 주소만 바꾸므로 시상식 화면에서도 그대로
-    if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
-    location.hash = '#/ceremony';
-  };
   const count = (key) => Object.keys(draft).filter((id) => draft[id] === key).length;
 
   return html`<section class=${`panel${dirty ? ' award-dirty' : ''}`}>
@@ -75,7 +80,7 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
       <span class="btn-row">
         <button type="button" class="btn btn-sm btn-primary" disabled=${busy || (!dirty && r.picked)} onClick=${() => send(draft, '수상 팀을 저장했습니다. 공개 참가현황·엑셀·시상식이 이 결과를 따릅니다.')}>수상 팀 저장</button>
         <button type="button" class="btn btn-sm" disabled=${busy || (!r.picked && !dirty)} onClick=${toScore}>점수대로</button>
-        <button type="button" class="btn btn-sm" disabled=${busy} onClick=${openCeremony}>시상식 화면 열기</button>
+        <button type="button" class="btn btn-sm" disabled=${busy} onClick=${() => openCeremony(dirty && '수상 선택')}>시상식 화면 열기</button>
         <a class="btn btn-sm btn-ghost" href="#/ceremony?practice=1" onClick=${(e) => goPractice(e, dirty && '수상 선택', true)}>시상식 연습</a>
       </span>
     </div>
@@ -96,10 +101,45 @@ export function ResultsPanel({ r, flags, toggle, want, reload }) {
   </section>`;
 }
 
-/** [설정] 「대형 화면 모션그래픽」 아래: 장면마다 현황판 연습 · 시상식 연습(이 탭 — 행사장 화면·설정과 상관없다). dirty: 저장하지 않은 설정 */
-export function StagePreviewLinks({ dirty }) {
-  const go = (e, full) => goPractice(e, dirty && '설정', full);
-  return html`<div class="stage-links small">연습(관리자만 · 이 탭에서 열고 [나가기]로 돌아옵니다 · 행사장 화면에는 영향 없음 · 수상 장면은 가짜 팀):
-    ${PREVIEW_SCENES.map(([k, label]) => html` <a href=${`#/board?tv=1&preview=${k}`} onClick=${(e) => go(e, false)}>${label}</a>`)}
-    ${' · '}<a href="#/ceremony?practice=1" onClick=${(e) => go(e, true)}>시상식 연습</a></div>`;
+/**
+ * 관리자 화면 맨 위(대회 모드) 「행사장 큰 화면」. 실전: 모션그래픽 켜기·끄기(설정 stageShow 를 곧바로 저장 — 행사장 현황판이 1분 안에 따른다),
+ * 행사장 화면 열기(새 탭 — 로그인 없이 열리는 공개 현황판 #/board?tv=1), 시상식 화면 열기(이 탭, 저장한 공식 결과).
+ * 연습: 장면마다 현황판 연습 · 시상식 연습(이 탭, 관리자만 — 행사장 화면과 서버에는 영향 없음, 수상 장면은 가짜 팀).
+ */
+export function StageBar({ settings, reload }) {
+  const { notify } = useApp();
+  const [busy, run] = useBusy();
+  const on = settings.stageShow === 'Y';
+  const tvUrl = `${location.href.split('#')[0]}#/board?tv=1`;
+  const toggle = () => {
+    const ask = on ? '실전 모션그래픽을 끌까요? 행사장 화면이 1분 안에 팀 현황판으로 돌아갑니다.'
+      : '실전 모션그래픽을 켤까요? 행사장 화면(현황판 TV)이 1분 안에 모션그래픽으로 바뀝니다.';
+    const lost = unsaved();
+    if (!confirm(lost ? `${ask}\n저장하지 않은 ${lost}은 사라집니다.` : ask)) return;
+    run(async () => {
+      try {
+        await api('adminSettings', { token: session.get('admin'), settings: { stageShow: on ? 'N' : 'Y' } });
+        notify(on ? '실전 모션그래픽을 껐습니다. 행사장 화면이 1분 안에 팀 현황판으로 돌아갑니다.' : '실전 모션그래픽을 켰습니다. 행사장 화면이 1분 안에 바뀝니다.');
+        await reload();
+      } catch (err) {
+        notify(err.message, 'err');
+      }
+    });
+  };
+  const practice = (e, full) => goPractice(e, unsaved(), full);
+  return html`<section class="panel stage-bar" aria-label="행사장 큰 화면">
+    <div class="panel-h"><h2>행사장 큰 화면 <span class=${`pstate${on ? ' ok' : ''}`}>${on ? '실전 모션그래픽 켜짐' : '모션그래픽 꺼짐 · 팀 현황판'}</span></h2>
+      <div class="btn-row">
+        <button type="button" class=${`btn btn-sm${on ? '' : ' btn-primary'}`} disabled=${busy} onClick=${toggle}>${on ? '실전 끄기' : '실전 켜기'}</button>
+        <a class="btn btn-sm" href="#/board?tv=1" target="_blank" rel="noopener">행사장 화면 열기</a>
+        <button type="button" class="btn btn-sm" onClick=${() => openCeremony(unsaved())}>시상식 화면 열기</button>
+      </div>
+    </div>
+    <p class="small muted">${on ? '시간표대로 바뀝니다: 마감 카운트다운 → 제출 마감 → 심사 중 → 수상 축하(시상 결과 공개 뒤 · 저장한 진짜 수상 팀).'
+      : '[실전 켜기]를 누르면 행사장 화면이 모션그래픽(마감 카운트다운 → 제출 마감 → 심사 중 → 수상 축하)으로 바뀝니다.'}${' '}
+      행사장 컴퓨터에서는 <span class="mono">${tvUrl}</span> 을 열고 [전체 화면]을 누르세요(로그인 필요 없음).</p>
+    <div class="stage-links small">연습(관리자만 · 이 탭에서 열고 [나가기]로 돌아옵니다 · 행사장 화면에는 영향 없음 · 수상 장면은 가짜 팀):
+      ${PREVIEW_SCENES.map(([k, label], i) => html`${i ? ' · ' : ' '}<a href=${`#/board?tv=1&preview=${k}`} onClick=${(e) => practice(e, false)}>${label}</a>`)}
+      ${' · '}<a href="#/ceremony?practice=1" onClick=${(e) => practice(e, true)}>시상식 연습</a></div>
+  </section>`;
 }

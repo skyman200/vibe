@@ -9,6 +9,7 @@ import { TeamFields, checkTeam } from './apply.js';
 import { PrelimTab } from './admin-prelim.js';
 import { FinalsTab } from './admin-finals.js';
 import { CodeJudgePanel } from './admin-code-judge.js';
+import { ResultsPanel, StageBar } from './admin-awards.js';
 
 const COLUMNS = [
   ['draft', '팀 구성 중'],
@@ -54,7 +55,7 @@ async function downloadExcel() {
   return res;
 }
 
-function AdminLogin({ onDone, message }) {
+export function AdminLogin({ onDone, message, lead }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState(message || '');
   const [busy, run] = useBusy();
@@ -71,7 +72,7 @@ function AdminLogin({ onDone, message }) {
     });
   };
   return html`<div class="wrap page">
-    <div class="page-h"><div><h1>관리자</h1><p>참가자 개인정보 원문을 볼 수 있는 화면입니다. 공용 PC에서는 사용 후 로그아웃하세요.</p></div></div>
+    <div class="page-h"><div><h1>관리자</h1><p>${lead || '참가자 개인정보 원문을 볼 수 있는 화면입니다. 공용 PC에서는 사용 후 로그아웃하세요.'}</p></div></div>
     <form class="box" style="max-width:440px;display:grid;gap:14px" onSubmit=${submit}>
       <${Field} label="관리자 코드" id="admin-code" error=${error}>
         <input id="admin-code" class="input mono" type="password" autocomplete="off" value=${code} onInput=${(e) => setCode(e.target.value)} />
@@ -79,6 +80,16 @@ function AdminLogin({ onDone, message }) {
       <button class="btn btn-primary" type="submit" disabled=${busy}>${busy ? '확인 중…' : '들어가기'}</button>
     </form>
   </div>`;
+}
+
+/**
+ * 관리자만 보는 큰 화면(현황판 연습 #/board?tv=1&preview=… · 시상식 연습 #/ceremony?practice=1): 이 탭에 관리자 로그인이 없으면
+ * 로그인부터 한다(로그인은 탭 메모리에만 — 관리자 화면에서 같은 탭으로 열면 그대로 이어진다). 연습 화면에는 개인정보가 없다.
+ */
+export function AdminGate({ lead, children }) {
+  const [, setIn] = useState(0);
+  if (session.get('admin')) return children;
+  return html`<div class="tv-login"><${AdminLogin} lead=${lead} onDone=${() => setIn((n) => n + 1)} /></div>`;
 }
 
 /* ───────────── 칸반 ───────────── */
@@ -370,6 +381,22 @@ function TeamEditor({ team, data, onSaved, onClose }) {
 
 /* ───────────── 팀 상세 ───────────── */
 
+/**
+ * 심사용 계정 요약(「내 신청」에서 팀이 넣는다 — gas/FinalsJudge.js judgeAccessView_). 비밀번호는 서버가 보내지 않아 아이디만 보인다.
+ * 서비스 주소를 바꾼 뒤 고치지 않았으면(sameSite 거짓) AI 심사가 이 계정을 쓰지 않는다.
+ */
+function AccessSummary({ access: a }) {
+  if (!a) return html`<p class="small muted" style="margin:0">심사용 계정: 아직 넣지 않음(2일차 11:00 제출 사전 점검 전까지 — 없으면 AI 심사가 로그인한 화면을 보지 못합니다).</p>`;
+  return html`<div>
+    ${a.sameSite ? '' : html`<div class="notice bad">서비스 주소가 바뀐 뒤 팀이 심사용 계정을 고치지 않았습니다 — 이대로는 AI 심사가 이 계정을 쓰지 않습니다.</div>`}
+    <dl class="kv">
+      <dt>심사용 로그인</dt><dd><a class="mono" href=${a.login} target="_blank" rel="noopener">${a.login}</a> <span class="small muted">${fmtWhen(a.at)}</span></dd>
+      <dt>주요 화면</dt><dd>${a.screens.map((u, i) => html`${i ? html`<br />` : ''}<a class="mono" href=${u} target="_blank" rel="noopener">${u}</a>`)}</dd>
+      <dt>심사용 계정</dt><dd class="mono">${a.accounts.map((x) => x.id).join(' · ')}</dd>
+    </dl>
+  </div>`;
+}
+
 function TeamDrawer({ team, data, onClose, reload }) {
   const { notify } = useApp();
   const [memo, setMemo] = useState(team.memo);
@@ -485,6 +512,7 @@ function TeamDrawer({ team, data, onClose, reload }) {
           ${team.repo.url ? html`<button class="btn btn-sm" disabled=${busy} onClick=${() => call('adminRepoCheck', {}, '저장소를 다시 점검했습니다.')}>저장소 점검</button>
             <a class="btn btn-sm btn-ghost" href=${team.repo.url} target="_blank" rel="noopener">GitHub 열기</a>` : ''}
         </div>
+        ${team.status === 'selected' ? html`<${AccessSummary} access=${team.repo.access} />` : ''}
       </section>
 
       ${team.status === 'selected' ? html`<section class="panel">
@@ -598,24 +626,8 @@ function JudgingTab({ data, reload, openTeam }) {
 
     <${CodeJudgePanel} pin=${data.deadlinePin} reload=${reload} openTeam=${openTeam} stamp=${data} />
 
-    <section class="panel">
-      <div class="panel-h"><h2>최종 결과</h2>
-        <div class="btn-row">
-          <label class="check small"><input type="checkbox" checked=${flags.scoringLocked} onChange=${(e) => toggle('scoringLocked', e.target.checked, e.target.checked ? '심사를 마감했습니다.' : '심사를 다시 열었습니다.')} /><span>심사 마감</span></label>
-          <label class="check small"><input type="checkbox" checked=${flags.resultsPublished} onChange=${(e) => toggle('resultsPublished', e.target.checked, e.target.checked ? '시상 결과를 공개했습니다.' : '시상 결과를 비공개로 돌렸습니다.')} /><span>시상 결과 공개</span></label>
-        </div>
-      </div>
-      ${r.warnings.length ? html`<div class="notice warn">${r.warnings.map((w) => html`<div>${w}</div>`)}</div>` : r.rows.length ? html`<div class="notice ok">모든 심사가 끝났습니다.</div>` : ''}
-      <div class="table-box"><table class="dtable">
-        <thead><tr><th>순위</th><th>시상</th><th>팀</th><th>코드(50)</th><th>대면 평균(50)</th><th>심사위원</th><th>총점</th></tr></thead>
-        <tbody>${r.rows.map((x) => html`<tr>
-          <td class="num"><b>${x.rank || '-'}</b></td><td>${x.award ? html`<span class="award">${x.award}</span>` : ''}</td>
-          <td>${x.name}</td><td class="num">${x.code === null ? '-' : x.code}</td><td class="num">${x.live === null ? '-' : x.live.toFixed(2)}</td>
-          <td class="num">${x.liveCount}/${x.judgeCount}</td><td class="num"><b>${x.total === null ? '-' : x.total.toFixed(2)}</b></td>
-        </tr>`)}</tbody>
-      </table></div>
-      <p class="small muted" style="margin:0">총점 = 코드 심사 + 대면 심사 평균. 같으면 대면 점수가 높은 팀이 위. 시상 수는 설정에서 바꿀 수 있습니다.</p>
-    </section>
+    <${ResultsPanel} key=${r.rows.map((x) => `${x.teamId}:${x.award}`).join(',')} r=${r} flags=${flags} toggle=${toggle} reload=${reload}
+      want=${{ gold: Number(data.settings.awardGold) || 0, silver: Number(data.settings.awardSilver) || 0, bronze: Number(data.settings.awardBronze) || 0 }} />
 
     ${issued ? html`<${Modal} title="심사위원 코드" onClose=${() => setIssued(null)}>
       <p><b>${issued.judge.name}</b> 심사위원에게 아래 코드를 전달하세요. 이 창을 닫으면 다시 볼 수 없습니다(필요하면 재발급).</p>
@@ -629,7 +641,7 @@ function JudgingTab({ data, reload, openTeam }) {
 
 const SETTING_GROUPS = [
   ['행사', [['eventName', '행사명', 'text'], ['eventPeriod', '행사 일시(표시용)', 'text'], ['venue', '장소', 'text']]],
-  ['기간(한국 시각)', [['applyStart', '접수 시작', 'datetime'], ['applyEnd', '접수 마감', 'datetime'], ['submitOpen', '결과물 제출 시작', 'datetime'], ['submitDeadline', '결과물 제출 마감', 'datetime']]],
+  ['기간(한국 시각)', [['applyStart', '접수 시작', 'datetime'], ['applyEnd', '접수 마감', 'datetime'], ['submitOpen', '결과물 제출 시작', 'datetime'], ['kickoffAt', '본선 시작(저장소 등록 열림)', 'datetime'], ['startDeadline', '출발점 등록 마감', 'datetime'], ['submitDeadline', '결과물 제출 마감', 'datetime']]],
   ['인원', [['applicantCap', '접수 정원(명) — 4의 배수 권장', 'number'], ['selectTarget', '본선 진출 팀 수', 'number']]],
   ['시상 팀 수', [['awardGold', '금상', 'number'], ['awardSilver', '은상', 'number'], ['awardBronze', '동상', 'number']]],
   ['문의처', [['contactName', '문의처', 'text'], ['contactPhone', '전화', 'text'], ['contactEmail', '이메일', 'text']]],
@@ -728,7 +740,10 @@ function SettingsTab({ data, reload, onCodeChanged }) {
   <//>`;
   const yn = (k, label, hint) => html`<label class="check"><input type="checkbox" checked=${form[k] === 'Y'} onChange=${(e) => set(k, e.target.checked ? 'Y' : 'N')} /><span><b>${label}</b><div class="small muted">${hint}</div>${errors[k] ? html`<div class="err" role="alert">${errors[k]}</div>` : ''}</span></label>`;
 
-  return html`<form class="form" onSubmit=${save}>
+  // 저장하지 않은 설정 — 「행사장 큰 화면」에서 다른 화면으로 가거나 다시 불러오기 전에 묻는다(admin-awards.js unsaved)
+  const dirty = Object.keys(form).some((k) => k !== 'disabledDepts' && form[k] !== s[k]) || Array.from(disabled).sort().join(',') !== String(s.disabledDepts || '');
+
+  return html`<form class=${`form${dirty ? ' settings-dirty' : ''}`} onSubmit=${save}>
     ${SETTING_GROUPS.map(([title, fields]) => html`<fieldset class="fs">
       <div class="fs-h"><h2>${title}</h2></div>
       <div class="grid-3">${fields.map(([k, label, type]) => input(k, label, type))}</div>
@@ -748,6 +763,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       ${yn('resultsPublished', '시상 결과 공개', '켜면 참가현황 맨 위에 수상 팀이 나옵니다.')}
       <label class="check"><input type="checkbox" checked=${form.boardMode === 'contest'} onChange=${(e) => set('boardMode', e.target.checked ? 'contest' : 'recruit')} />
         <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 본선 진출 발표 뒤에만).</div>${errors.boardMode ? html`<div class="err" role="alert">${errors.boardMode}</div>` : ''}</span></label>
+      <p class="small muted" style="margin:0">대형 화면 모션그래픽(행사장 현황판 실전 켜기·끄기 · 시상식 화면 · 연습)은 대회 모드에서 관리자 화면 맨 위 「행사장 큰 화면」에서 합니다.</p>
     </fieldset>
 
     <fieldset class="fs">
@@ -822,12 +838,15 @@ function SettingsTab({ data, reload, onCodeChanged }) {
 
 /* ───────────── 관리자 화면 ───────────── */
 
+const TABS = [['kanban', '칸반'], ['people', '참가자'], ['prelim', '예선'], ['finals', '본선'], ['judging', '심사'], ['settings', '설정']];
+
 export function AdminView() {
-  const { notify } = useApp();
+  const { notify, route } = useApp();
   const [data, setData] = useState(null);
   const [state, setState] = useState(session.get('admin') ? 'loading' : 'login');
   const [message, setMessage] = useState('');
-  const [tab, setTab] = useState('kanban');
+  // #/admin?tab=심사 탭 키 — 시상식·연습 화면에서 나오면 연 탭으로 돌아온다
+  const [tab, setTab] = useState(() => (TABS.some(([k]) => k === route.query.get('tab')) ? route.query.get('tab') : 'kanban'));
   const [openId, setOpenId] = useState('');
   const [exporting, setExporting] = useState(false);
   const [paper, setPaper] = useState(false);
@@ -882,8 +901,9 @@ export function AdminView() {
         <button class="btn btn-ghost" onClick=${() => { session.clear('admin'); setData(null); setState('login'); }}>로그아웃</button>
       </div>
     </div>
+    ${data.settings.boardMode === 'contest' ? html`<${StageBar} settings=${data.settings} reload=${load} />` : ''}
     <div class="tabs" role="tablist">
-      ${[['kanban', '칸반'], ['people', '참가자'], ['prelim', '예선'], ['finals', '본선'], ['judging', '심사'], ['settings', '설정']].map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
+      ${TABS.map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
     </div>
     ${tab === 'kanban' ? html`<${KanbanTab} data=${data} reload=${load} openTeam=${setOpenId} />` : ''}
     ${tab === 'people' ? html`<${PeopleTab} data=${data} openTeam=${setOpenId} />` : ''}

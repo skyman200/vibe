@@ -880,5 +880,8 @@ html.tv .updatebar { display: none; }
 .award-pick button.pick-gold[aria-pressed='true'] { background: #a86f00; border-color: #a86f00; color: #fff; }
 .award-pick button.pick-silver[aria-pressed='true'] { background: #55606f; border-color: #55606f; color: #fff; }
 .award-pick button.pick-bronze[aria-pressed='true'] { background: #8f4a24; border-color: #8f4a24; color: #fff; }
-.stage-links { margin: -4px 0 0 32px; color: var(--ink-2); }
+.stage-bar { margin: 0 0 16px; gap: 8px; border: 1px solid var(--line-2); border-radius: 12px; padding: 12px 16px; }
+.stage-bar p { margin: 0; }
+.stage-bar .mono { word-break: break-all; }
+.stage-links { color: var(--ink-2); }
 .stage-links a { white-space: nowrap; }

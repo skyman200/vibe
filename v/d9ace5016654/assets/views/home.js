@@ -84,15 +84,20 @@ function Sec({ n, title, children, id }) {
   </section>`;
 }
 
-function RubricTable({ title, rows, note }) {
+/** 심사 기준 표: 항목(이름·설명·배점), 코드 심사는 항목마다 세부 기준(칸)과 0점·상한 규칙(caps)까지 — 참가자에게 알린 그대로 채점한다. */
+function RubricTable({ title, rows, note, caps }) {
   const total = rows.reduce((a, r) => a + r.max, 0);
   return html`<div>
     <h3><span>${title}</span><span class="num">${total}점</span></h3>
     <table class="table">
       <tbody>
-        ${rows.map((r) => html`<tr><td><b>${r.label}</b><div class="small muted">${r.desc}</div></td><td class="pts">${r.max}</td></tr>`)}
+        ${rows.map((r) => html`<tr><td><b>${r.label}</b><div class="small muted">${r.desc}</div>
+          ${r.checks ? html`<details class="rubric-checks"><summary>세부 기준 ${r.checks.length}가지</summary>
+            <ul>${r.checks.map((k) => html`<li><b>${k.label}</b> <span class="num">${k.max}점</span> — ${k.desc}${k.by === 'measure' ? ' (측정 프로그램이 잰다)' : ''}</li>`)}</ul>
+          </details>` : ''}</td><td class="pts">${r.max}</td></tr>`)}
       </tbody>
     </table>
+    ${caps && caps.length ? html`<ul class="rubric-caps">${caps.map((c) => html`<li>${c}</li>`)}</ul>` : ''}
     <p class="small muted" style="margin-top:10px">${note}</p>
   </div>`;
 }
@@ -213,8 +218,8 @@ export function HomeView() {
 
     <${Sec} n="3" title="심사 기준" id="judging">
       <div class="two">
-        <${RubricTable} title="코드 심사" rows=${config.rubric.code}
-          note="제출 마감 시점의 GitHub 저장소와 README를 AI가 모든 팀에 같은 기준으로 분석합니다(이름·학번·연락처와 API 키 같은 비밀값은 가린 뒤)." />
+        <${RubricTable} title="코드 심사" rows=${config.rubric.code} caps=${config.rubric.codeCaps}
+          note="제출 마감 시점의 GitHub 저장소(코드)와 배포한 서비스를 AI가 모든 팀에 같은 기준으로 심사합니다. 측정 프로그램이 서비스를 열어 속도를 재고, AI가 「내 신청」의 심사용 계정으로 로그인해 직접 써 본 뒤 칸마다 근거(코드의 파일·줄, 화면 사진, 써 본 기록)를 대고 채점합니다. 코드는 이름·학번·연락처와 API 키 같은 비밀값을 가린 뒤 AI에 줍니다." />
         <${RubricTable} title="대면 심사" rows=${config.rubric.live}
           note="심사위원이 팀 자리를 돌며 시연을 보고 질의응답으로 평가하며, 평균 점수를 반영합니다." />
       </div>
@@ -234,7 +239,8 @@ export function HomeView() {
 
     <${Sec} n="5" title="결과물 제출" id="submit">
       <ul class="bullets">
-        <li>본선이 시작되면 <b>GitHub 공개 저장소 주소</b>(심사 기간 동안 공개)와 서비스 주소를 이 사이트의 「내 신청」에 한 번 등록하고, 그 저장소에 계속 올립니다.</li>
+        <li>본선 결과물은 <b>본선 시작${e.kickoffAt ? `(${fmtWhen(e.kickoffAt)})` : ''} 뒤에 새로 만든 GitHub 공개 저장소</b>에서 개발합니다. 본선 전에 만든 코드(예선 결과물 포함)를 가져오면 실격입니다(공개 시작 저장소는 써도 됩니다).</li>
+        <li>새 저장소는 ${e.startDeadline ? html`<b class="num">${fmtWhen(e.startDeadline)}</b>까지` : '본선 1일차 오전에'} 이 사이트의 「내 신청」에 등록하고(출발점), 서비스 주소도 함께 넣은 뒤 그 저장소에 자주 커밋·푸시합니다. 서버가 그 개발 과정을 기록합니다.</li>
         <li>제출 마감은 <b class="num">${fmtWhen(e.submitDeadline)}</b>입니다. 심사는 마감 시각에 main(기본) 브랜치에 있는 최신 커밋으로 하며, 마감 이후의 커밋은 반영하지 않습니다.</li>
         <li>마감 당일에는 <b>팀원 모두 「내 신청」에서 만족도 조사에 응답한 뒤 [최종 제출]</b>을 눌러야 제출이 끝납니다. 최종 제출하지 않은 팀은 미제출로 처리됩니다.</li>
         <li>README에는 ${config.readmeItems.join(', ')}을 적습니다.</li>

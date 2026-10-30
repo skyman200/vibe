@@ -9,7 +9,7 @@ import { TeamFields, checkTeam } from './apply.js';
 import { PrelimTab } from './admin-prelim.js';
 import { FinalsTab } from './admin-finals.js';
 import { CodeJudgePanel } from './admin-code-judge.js';
-import { ResultsPanel, StagePreviewLinks } from './admin-awards.js';
+import { ResultsPanel, StageBar } from './admin-awards.js';
 
 const COLUMNS = [
   ['draft', '팀 구성 중'],
@@ -740,7 +740,10 @@ function SettingsTab({ data, reload, onCodeChanged }) {
   <//>`;
   const yn = (k, label, hint) => html`<label class="check"><input type="checkbox" checked=${form[k] === 'Y'} onChange=${(e) => set(k, e.target.checked ? 'Y' : 'N')} /><span><b>${label}</b><div class="small muted">${hint}</div>${errors[k] ? html`<div class="err" role="alert">${errors[k]}</div>` : ''}</span></label>`;
 
-  return html`<form class="form" onSubmit=${save}>
+  // 저장하지 않은 설정 — 「행사장 큰 화면」에서 다른 화면으로 가거나 다시 불러오기 전에 묻는다(admin-awards.js unsaved)
+  const dirty = Object.keys(form).some((k) => k !== 'disabledDepts' && form[k] !== s[k]) || Array.from(disabled).sort().join(',') !== String(s.disabledDepts || '');
+
+  return html`<form class=${`form${dirty ? ' settings-dirty' : ''}`} onSubmit=${save}>
     ${SETTING_GROUPS.map(([title, fields]) => html`<fieldset class="fs">
       <div class="fs-h"><h2>${title}</h2></div>
       <div class="grid-3">${fields.map(([k, label, type]) => input(k, label, type))}</div>
@@ -760,8 +763,7 @@ function SettingsTab({ data, reload, onCodeChanged }) {
       ${yn('resultsPublished', '시상 결과 공개', '켜면 참가현황 맨 위에 수상 팀이 나옵니다.')}
       <label class="check"><input type="checkbox" checked=${form.boardMode === 'contest'} onChange=${(e) => set('boardMode', e.target.checked ? 'contest' : 'recruit')} />
         <span><b>대회 모드</b><div class="small muted">참가현황을 본선 팀의 '개발 중 → 결과물 제출' 칸반으로 바꿉니다(대회 당일, 본선 진출 발표 뒤에만).</div>${errors.boardMode ? html`<div class="err" role="alert">${errors.boardMode}</div>` : ''}</span></label>
-      ${yn('stageShow', '대형 화면 모션그래픽', '대회 모드일 때 현황판(TV, #/board?tv=1)을 행사장 큰 화면용 모션그래픽으로 바꿉니다 — 마감 카운트다운 → 제출 마감 → 심사 중 → 수상 축하(시상 결과 공개 뒤). 저장하면 1분 안에 바뀌고, 끄면 지금의 현황판으로 돌아옵니다.')}
-      <${StagePreviewLinks} dirty=${Object.keys(form).some((k) => k !== 'disabledDepts' && form[k] !== s[k]) || Array.from(disabled).sort().join(',') !== String(s.disabledDepts || '')} />
+      <p class="small muted" style="margin:0">대형 화면 모션그래픽(행사장 현황판 실전 켜기·끄기 · 시상식 화면 · 연습)은 대회 모드에서 관리자 화면 맨 위 「행사장 큰 화면」에서 합니다.</p>
     </fieldset>
 
     <fieldset class="fs">
@@ -899,6 +901,7 @@ export function AdminView() {
         <button class="btn btn-ghost" onClick=${() => { session.clear('admin'); setData(null); setState('login'); }}>로그아웃</button>
       </div>
     </div>
+    ${data.settings.boardMode === 'contest' ? html`<${StageBar} settings=${data.settings} reload=${load} />` : ''}
     <div class="tabs" role="tablist">
       ${TABS.map(([k, label]) => html`<button role="tab" aria-selected=${tab === k ? 'true' : 'false'} onClick=${() => setTab(k)}>${label}</button>`)}
     </div>

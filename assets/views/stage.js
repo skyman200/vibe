@@ -197,7 +197,7 @@ export function StageShow({ data, skew, error, preview }) {
     ${pv ? html`<${Picker} scene=${pv.scene} choose=${choose} hide=${idle} />` : ''}
     <div class=${`stage-ctl${idle ? ' hide' : ''}`}>
       <button class="btn btn-sm" type="button" onClick=${toggleFull}>${full ? '전체 화면 끝내기' : '전체 화면'}</button>
-      <a class="btn btn-sm btn-ghost" href=${pv ? '#/admin?tab=settings' : '#/board'}>나가기</a>
+      <a class="btn btn-sm btn-ghost" href=${pv ? '#/admin' : '#/board'}>나가기</a>
     </div>
   </div>`;
 }
